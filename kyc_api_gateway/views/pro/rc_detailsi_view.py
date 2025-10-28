@@ -185,7 +185,7 @@ class ProRcAPIView(APIView):
                 data = None
                 try:
                     if hasattr(response, "json"):
-                        data = response.json()
+                        data = response
                     else:
                         data = response
                 except Exception:

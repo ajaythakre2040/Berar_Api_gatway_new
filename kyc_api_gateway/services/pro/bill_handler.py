@@ -18,7 +18,7 @@ def build_vendor_request(vendor_name, request_data):
             "service_provider": request_data.get("service_provider"),
             "district": request_data.get("district") or "",
             "regMobileNo": request_data.get("regMobileNo") or "",
-            "consent": {"consent": "Y"},
+            "consent": "Y",
             "clientData": {"caseId": request_data.get("caseId") or "123456"},
         }
 

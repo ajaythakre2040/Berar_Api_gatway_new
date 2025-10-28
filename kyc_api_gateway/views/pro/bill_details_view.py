@@ -229,7 +229,7 @@ class ProBillDetailsAPIView(APIView):
                     continue
 
                 try:
-                    data = response.json()
+                    data = response
                 except Exception:
                     data = None
 
