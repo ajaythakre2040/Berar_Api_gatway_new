@@ -1,0 +1,45 @@
+from rest_framework import serializers
+from kyc_api_gateway.models import ProRcDetails
+
+class ProRcDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProRcDetails
+        fields = [
+            "rc_number",
+            "owner_name",
+            "father_name",
+            "present_address",
+            "permanent_address",
+            "mobile_number",
+            "registration_date",
+            "fit_upto", 
+            "insurance_company",
+            "insurance_policy_number",
+            "insurance_upto",
+            "maker_description",
+            "maker_model",
+            "body_type",
+            "fuel_type",
+            "color",
+            "norms_type",
+            "financer",
+            "financed",
+            "vehicle_category",
+            "vehicle_category_description",
+            "manufacturing_date",
+            "manufacturing_date_formatted",
+            "tax_upto",
+            "registered_at",
+            "seat_capacity",
+            "sleeper_capacity",
+            "standing_capacity",
+            "wheelbase",
+            "no_cylinders",
+            "vehicle_gross_weight",
+            "unladen_weight",
+            "rc_status",
+            "latest_by",
+            "less_info",
+            "client_id",
+            "full_response",
+        ]
