@@ -84,7 +84,6 @@ class UserListCreateView(generics.ListCreateAPIView):
                     "success": True,
                     "message": "User created successfully.",
                     "status_code": status.HTTP_201_CREATED,
-                    "data": TblUserSerializer(user).data,
                 },
                 status=status.HTTP_201_CREATED,
             )
