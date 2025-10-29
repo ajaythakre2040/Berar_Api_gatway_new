@@ -40,23 +40,103 @@ class KycVendorPriorityListCreate(APIView):
             },
         )
 
-    def post(self, request):
+    # def post(self, request):
 
-        serializer = KycVendorPrioritySerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(created_by=request.user.id)
+    #     serializer = KycVendorPrioritySerializer(data=request.data)
+    #     if serializer.is_valid():
+    #         serializer.save(created_by=request.user.id)
+    #         return Response(
+    #             {"success": True, "message": "Vendor priority created successfully."},
+    #             status=status.HTTP_201_CREATED,
+    #         )
+    #     return Response(
+    #         {
+    #             "success": False,
+    #             "message": "Failed to create vendor priority.",
+    #             "errors": serializer.errors,
+    #         },
+    #         status=status.HTTP_400_BAD_REQUEST
+    #     )
+
+    def post(self, request):
+        client_id = request.data.get("client")
+        service_data_list = request.data.get("my_service_data", [])
+
+        if not client_id or not service_data_list:
             return Response(
-                {"success": True, "message": "Vendor priority created successfully."},
+                {
+                    "success": False,
+                    "message": "Missing 'client' or 'my_service_data' in request.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created_records = []
+
+        try:
+            for service_data in service_data_list:
+                my_service_id = service_data.get("my_service")
+                vendor_data_list = service_data.get("vendor_data", [])
+
+                if not my_service_id or not vendor_data_list:
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "Missing 'my_service' or 'vendor_data' in one of the entries.",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                for vendor_item in vendor_data_list:
+                    vendor_id = vendor_item.get("vendor")
+                    priority = vendor_item.get("priority")
+
+                    if not vendor_id or priority is None:
+                        return Response(
+                            {
+                                "success": False,
+                                "message": "Each vendor entry must include 'vendor' and 'priority'.",
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                    data = {
+                        "client": client_id,
+                        "my_service": my_service_id,
+                        "vendor": vendor_id,
+                        "priority": priority,
+                    }
+
+                    serializer = KycVendorPrioritySerializer(data=data)
+                    if serializer.is_valid():
+                        serializer.save(created_by=request.user.id)
+                        created_records.append(serializer.data)
+                    else:
+                        return Response(
+                            {
+                                "success": False,
+                                "message": "Validation failed.",
+                                "errors": serializer.errors,
+                                "invalid_data": data,
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Vendor priorities created successfully.",
+                    "data": created_records,
+                },
                 status=status.HTTP_201_CREATED,
             )
-        return Response(
-            {
-                "success": False,
-                "message": "Failed to create vendor priority.",
-                "errors": serializer.errors,
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+
+        except Exception as e:
+            return Response(
+                {"success": False, "message": f"Error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
 
 
 class KycVendorPriorityDetail(APIView):
