@@ -43,6 +43,8 @@ from kyc_api_gateway.views.uat.name_details_view import NameMatchUatAPIView
 from kyc_api_gateway.views.uat.voter_details_view import UatVoterDetailsAPIView
 from kyc_api_gateway.views.uat.rc_detailsi_view import RcUatAPIView
 from kyc_api_gateway.views.uat.driving_license_details_view import UatDrivingLicenseAPIView
+from kyc_api_gateway.views.uat.passport_view import UatPassportView
+
 
 #production
 from kyc_api_gateway.views.pro.bill_details_view import ProBillDetailsAPIView   
@@ -86,6 +88,7 @@ urlpatterns = [
     path("uat_voter_details/", UatVoterDetailsAPIView.as_view(), name="uat_voter_details"),
     path("uat_rc_details/", RcUatAPIView.as_view(), name="uat_rc_details"),
     path("uat_driving_license_details/", UatDrivingLicenseAPIView.as_view(), name="uat_driving_license_details"),
+    path("uat_passport_details/", UatPassportView.as_view(), name="uat_passport_details"),
 
     #production
     path("prod_bill_details/", ProBillDetailsAPIView.as_view(), name="prod_bill_details"),

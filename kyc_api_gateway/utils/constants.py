@@ -22,13 +22,19 @@ VENDOR_VOTER_SERVICE_ENDPOINTS = {
 
 VENDOR_RC_SERVICE_ENDPOINTS = {
     
-    "karza": "v2/rc-basic",
+    "karza": "v3/rc-advanced",
     "surepass": "/api/v1/rc/rc-full",
 }
 
 VENDOR_DRIVING_LICENSE_ENDPOINTS = {
     "karza": "v3/dl",
     "surepass": "api/v1/driving-license/driving-license",
+}
+
+
+VENDOR_PASSPORT_SERVICE_ENDPOINTS = {
+    "karza": "v3/passport-verification",
+    "surepass": "api/v1/passport/passport/passport-details",
 }
 
 DEFAULT_COUNTRY = "India"

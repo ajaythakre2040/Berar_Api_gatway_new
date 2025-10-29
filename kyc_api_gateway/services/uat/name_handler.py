@@ -101,7 +101,7 @@ def call_vendor_api_uat(vendor, request_data):
         }
 
 
-def normalize_vendor_response(vendor_name, raw_data, request_data=None):
+def normalize_vendor_response(vendor_name, raw_data, request_data):
     vendor_name = vendor_name.lower()
     if vendor_name == "karza":
         return {

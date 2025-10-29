@@ -3,18 +3,18 @@ from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from kyc_api_gateway.models import (
-    UatNameMatch,
+    UatPassportDetails,
     ClientManagement,
     KycClientServicesManagement,
     KycVendorPriority
 )
-from kyc_api_gateway.models.uat_name_request_log import UatNameMatchRequestLog
-from kyc_api_gateway.serializers.uat_name_match_serializer import UatNameMatchSerializer
+from kyc_api_gateway.models.uat_passport_log import UatPassportRequestLog
+from kyc_api_gateway.serializers.uat_passport_serializer import UatPassportSerializer
 
-from kyc_api_gateway.services.uat.name_handler import call_vendor_api_uat, normalize_vendor_response , save_name_match_uat 
+from kyc_api_gateway.services.uat.passport_handler import call_vendor_api_uat, normalize_vendor_response ,  save_verification
 from constant import KYC_MY_SERVICES
 
-class NameMatchUatAPIView(APIView):
+class UatPassportView(APIView):
 
     authentication_classes = []
     permission_classes = []
@@ -31,24 +31,24 @@ class NameMatchUatAPIView(APIView):
 
     def post(self, request):
 
-        name1 = request.data.get("name_1")
-        name2 = request.data.get("name_2")
+        file_number = request.data.get("file_number")
+        dob = request.data.get("dob")
 
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
 
 
-        if not name1 or not name2 or name1.strip() == "":
+        if not file_number or not dob or file_number.strip() == "":
             missing = []
-            if not name1 or name1.strip() == "":
-                missing.append("name1")
-            if not name2 or name2.strip() == "":
-                missing.append("name2")
+            if not file_number or file_number.strip() == "":
+                missing.append("file_number")
+            if not dob or dob.strip() == "":
+                missing.append("dob")
             
             error_msg = f"Missing required fields: {', '.join(missing)}"
-            self._log_request(
-                name1=name1,
-                name2=name2,
+            self._log_passport_request(
+                file_number=file_number,
+                dob=dob,
                 vendor_name=None,
                 endpoint=request.path,
                 status_code=400,
@@ -57,10 +57,12 @@ class NameMatchUatAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 user=None,
-                match_obj=None,
+                verification_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent
             )
+
+           
             return Response({
                 "success": False,
                 "status": 400,
@@ -71,14 +73,14 @@ class NameMatchUatAPIView(APIView):
         if isinstance(client, Response):
             return client
         
-        service_name = "NAME"
+        service_name = "PASSPORT"
         service_id = KYC_MY_SERVICES.get(service_name.upper())
 
         if not service_id:
-            error_msg = "Name Match service not assigned"
-            self._log_request(
-                name1=name1,
-                name2=name2,
+            error_msg = "Passport  service not assigned"
+            self._log_passport_request(
+                file_number=file_number,
+                dob=dob,
                 vendor_name=None,
                 endpoint=request.path,
                 status_code=403,
@@ -87,7 +89,7 @@ class NameMatchUatAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 user=None,
-                match_obj=None,
+                verification_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent
             )
@@ -102,9 +104,9 @@ class NameMatchUatAPIView(APIView):
 
         except PermissionError as e:
 
-            self._log_request(
-                name1=name1,
-                name2=name2,
+            self._log_passport_request(
+                file_number=file_number,
+                dob=dob,
                 vendor_name=None,
                 endpoint=request.path,
                 status_code=403,
@@ -113,7 +115,7 @@ class NameMatchUatAPIView(APIView):
                 response_payload=None,
                 error_message=str(e),
                 user=None,
-                match_obj=None,
+                verification_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent
             )
@@ -124,9 +126,9 @@ class NameMatchUatAPIView(APIView):
             }, status=403)
 
         except ValueError as e:
-            self._log_request(
-                name1=name1,
-                name2=name2,
+            self._log_passport_request(
+                file_number=file_number,
+                dob=dob,
                 vendor_name=None,
                 endpoint=request.path,
                 status_code=500,
@@ -135,7 +137,7 @@ class NameMatchUatAPIView(APIView):
                 response_payload=None,
                 error_message=str(e),
                 user=None,
-                match_obj=None,
+                verification_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent
             )
@@ -146,20 +148,20 @@ class NameMatchUatAPIView(APIView):
             }, status=500)
            
         days_ago = timezone.now() - timedelta(days=cache_days)
-        name1 = request.data.get("name_1").strip()
-        name2 = request.data.get("name_2").strip()
+        file_number = request.data.get("file_number").strip()
+        dob = request.data.get("dob").strip()
 
-        cached = UatNameMatch.objects.filter(
-            name_1__iexact=name1,
-            name_2__iexact=name2,
+        cached = UatPassportDetails.objects.filter(
+            file_number__iexact=file_number,
+            dob__iexact=dob,
             created_at__gte=days_ago
         ).first()
 
         if cached:
-            serializer = UatNameMatchSerializer(cached)
-            self._log_request(
-                name1=name1,
-                name2=name2,
+            serializer = UatPassportSerializer(cached)
+            self._log_passport_request(
+                file_number=file_number,
+                dob=dob,
                 vendor_name="cached",
                 endpoint=request.path,
                 status_code=200,
@@ -168,7 +170,7 @@ class NameMatchUatAPIView(APIView):
                 response_payload=serializer.data,
                 error_message=None,
                 user=None,
-                match_obj=cached,
+                verification_obj=cached,
                 ip_address=ip_address,
                 user_agent=user_agent
             )
@@ -185,9 +187,9 @@ class NameMatchUatAPIView(APIView):
 
         if not vendors.exists():
             error_msg = "No vendors configured for Name Match service"
-            self._log_request(
-                name1=name1,
-                name2=name2,
+            self._log_passport_request(
+                file_number=file_number,
+                dob=dob,
                 vendor_name=None,
                 endpoint=request.path,
                 status_code=403,
@@ -196,7 +198,7 @@ class NameMatchUatAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 user=None,
-                match_obj=None,
+                verification_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent
             )
@@ -215,9 +217,9 @@ class NameMatchUatAPIView(APIView):
                 response = call_vendor_api_uat(vendor, request.data)
 
                 if response and response.get("http_error"):
-                    self._log_request(
-                        name1=name1,
-                        name2=name2,
+                    self._log_passport_request(
+                        file_number=file_number,
+                        dob=dob,
                         vendor_name=vendor.vendor_name,
                         endpoint=endpoint,
                         status_code=response.get("status_code") or 500,
@@ -226,7 +228,7 @@ class NameMatchUatAPIView(APIView):
                         response_payload=response.get("vendor_response"),
                         error_message=response.get("error_message"),
                         user=None,
-                        match_obj=None,
+                        verification_obj=None,
                         ip_address=ip_address,
                         user_agent=user_agent
                     )
@@ -240,9 +242,9 @@ class NameMatchUatAPIView(APIView):
 
                 if not normalized:
                     error_msg = f"Normalization failed for vendor {vendor.vendor_name}"
-                    self._log_request(
-                        name1=name1,
-                        name2=name2,
+                    self._log_passport_request(
+                        file_number=file_number,
+                        dob=dob,
                         vendor_name=vendor.vendor_name,
                         endpoint=endpoint,
                         status_code=502,
@@ -251,18 +253,18 @@ class NameMatchUatAPIView(APIView):
                         response_payload=data,
                         error_message=error_msg,
                         user=None,
-                        match_obj=None,
+                        verification_obj=None,
                         ip_address=ip_address,
                         user_agent=user_agent
                     )
                     continue
                 
-                name_obj = save_name_match_uat(normalized, client.id)
-                serializer = UatNameMatchSerializer(name_obj)
+                passport_obj = save_verification(normalized, client.id)
+                serializer = UatPassportSerializer(passport_obj)
 
-                self._log_request(
-                    name1=name1,
-                    name2=name2,
+                self._log_passport_request(
+                    file_number=file_number,
+                    dob=dob,
                     vendor_name=vendor.vendor_name,
                     endpoint=endpoint,
                     status_code=200,
@@ -271,7 +273,7 @@ class NameMatchUatAPIView(APIView):
                     response_payload=serializer.data,
                     error_message=None,
                     user=None,
-                    match_obj=name_obj,
+                    verification_obj=passport_obj,
                     ip_address=ip_address,
                     user_agent=user_agent
                 )
@@ -285,9 +287,9 @@ class NameMatchUatAPIView(APIView):
 
             except Exception as e:
                 error_msg = f"Request to vendor {vendor.vendor_name} failed: {str(e)}"
-                self._log_request(
-                    name1=name1,
-                    name2=name2,
+                self._log_passport_request(
+                    file_number=file_number,
+                    dob=dob,
                     vendor_name=vendor.vendor_name,
                     endpoint=endpoint,
                     status_code=500,
@@ -296,7 +298,7 @@ class NameMatchUatAPIView(APIView):
                     response_payload=None,
                     error_message=error_msg,
                     user=None,
-                    match_obj=None,
+                    verification_obj=None,
                     ip_address=ip_address,
                     user_agent=user_agent
                 )
@@ -318,9 +320,9 @@ class NameMatchUatAPIView(APIView):
 
             error_msg = "Missing API key"
 
-            self._log_request(
-                name1=None,
-                name2=None,
+            self._log_passport_request(
+                file_number=None,
+                dob=None,
                 vendor_name=None,
                 endpoint=request.path,
                 status_code=401,
@@ -329,7 +331,7 @@ class NameMatchUatAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 user=None,
-                match_obj=None,
+                verification_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent
             )
@@ -347,9 +349,9 @@ class NameMatchUatAPIView(APIView):
 
         if not client:
             error_msg = "Invalid API key"
-            self._log_request(
-                name1=None,
-                name2=None,
+            self._log_passport_request(
+                file_number=None,
+                dob=None,
                 vendor_name=None,
                 endpoint=request.path,
                 status_code=401,
@@ -358,7 +360,7 @@ class NameMatchUatAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 user=None,
-                match_obj=None,
+                verification_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent
             )
@@ -396,24 +398,40 @@ class NameMatchUatAPIView(APIView):
         ).select_related("vendor").order_by("priority")
     
 
-    def _log_request(self, name1, name2, vendor_name, endpoint, status_code, status, request_payload=None, response_payload=None, error_message=None, user=None, match_obj=None, ip_address=None, user_agent=None):
-
-         if not isinstance(status_code, int):
+    def _log_passport_request(
+        self,
+        file_number,
+        dob,
+        vendor_name,
+        endpoint,
+        status_code,
+        status,
+        request_payload=None,
+        response_payload=None,
+        error_message=None,
+        user=None,
+        verification_obj=None,
+        ip_address=None,
+        user_agent=None,
+    ):
+      
+        if not isinstance(status_code, int):
             raise ValueError(f"status_code must be an integer, got {status_code!r}")
-         
-         UatNameMatchRequestLog.objects.create(
-                name_1=name1,
-                name_2=name2,
-                vendor=vendor_name,
-                endpoint=endpoint,
-                status_code=status_code,
-                status=status,
-                request_payload=request_payload,
-                response_payload=response_payload,
-                error_message=error_message,
-                user=user if user and user.is_authenticated else None,
-                name_match=match_obj,
-                ip_address=ip_address,
-                user_agent=user_agent,
-         )
+
+
+        UatPassportRequestLog.objects.create(
+            file_number=file_number,
+            dob=dob,
+            vendor=vendor_name,
+            endpoint=endpoint,
+            status_code=status_code,
+            status=status,
+            request_payload=request_payload,
+            response_payload=response_payload,
+            error_message=error_message,
+            user=user if user and user.is_authenticated else None,
+            passport_verification=verification_obj,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
 

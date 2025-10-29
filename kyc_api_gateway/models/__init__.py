@@ -18,6 +18,8 @@ from .uat_rc_details import UatRcDetails
 from .uat_rc_request_log import UatRcRequestLog
 from .uat_driving_license import UatDrivingLicense
 from .uat_driving_license_log import UatDrivingLicenseRequestLog
+from .uat_passport_details import UatPassportDetails
+from .uat_passport_log import UatPassportRequestLog
 
 
 # Pro Models Added
