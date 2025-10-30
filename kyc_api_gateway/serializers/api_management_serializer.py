@@ -10,6 +10,7 @@ class ApiManagementSerializer(serializers.ModelSerializer):
         child=serializers.IntegerField(), required=False, write_only=True
     )
     supported_vendor_ids = serializers.SerializerMethodField(read_only=True)
+    vendor_name = serializers.CharField(source='vendor.vendor_name', read_only=True)  
 
     class Meta:
         model = ApiManagement
