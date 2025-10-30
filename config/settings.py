@@ -41,15 +41,17 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 CORS_ALLOW_ALL_ORIGINS = True
+
 CORS_ALLOWED_ORIGINS = [
     "https://your-frontend-domain.com",
     "http://localhost:3031",  # or whatever port you're using
+    "http://localhost:5173",
 ]
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "session-key",
     "x-forwarded-for",
+    "x-api-key",
 ]
-
 # Application definition
 
 INSTALLED_APPS = [

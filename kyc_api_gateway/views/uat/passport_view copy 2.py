@@ -60,8 +60,8 @@ class UatPassportView(APIView):
                 error_message=error_msg,
                 user=None,
                 verification_obj=None,
-                ip_address=ip_address,
-                user_agent=user_agent,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
             )
 
             return Response(
@@ -77,7 +77,7 @@ class UatPassportView(APIView):
         service_id = KYC_MY_SERVICES.get(service_name.upper())
 
         if not service_id:
-            error_msg = "Passport  service not assigned"
+            error_msg = "Passport service not assigned"
             self._log_passport_request(
                 file_number=file_number,
                 dob=dob,
@@ -90,8 +90,8 @@ class UatPassportView(APIView):
                 error_message=error_msg,
                 user=None,
                 verification_obj=None,
-                ip_address=ip_address,
-                user_agent=user_agent,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
             )
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
@@ -114,11 +114,11 @@ class UatPassportView(APIView):
                 error_message=str(e),
                 user=None,
                 verification_obj=None,
-                ip_address=ip_address,
-                user_agent=user_agent,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
             )
             return Response(
-                {"success": False, "status": 403, "error": error_msg}, status=403
+                {"success": False, "status": 403, "error": str(e)}, status=403
             )
 
         except ValueError as e:
@@ -134,17 +134,14 @@ class UatPassportView(APIView):
                 error_message=str(e),
                 user=None,
                 verification_obj=None,
-                ip_address=ip_address,
-                user_agent=user_agent,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
             )
             return Response(
                 {"success": False, "status": 500, "error": str(e)}, status=500
             )
 
         days_ago = timezone.now() - timedelta(days=cache_days)
-        file_number = request.data.get("file_number").strip()
-        dob = request.data.get("dob").strip()
-
         cached = UatPassportDetails.objects.filter(
             file_number__iexact=file_number, dob__iexact=dob, created_at__gte=days_ago
         ).first()
@@ -163,8 +160,8 @@ class UatPassportView(APIView):
                 error_message=None,
                 user=None,
                 verification_obj=cached,
-                ip_address=ip_address,
-                user_agent=user_agent,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
             )
 
             return Response(
@@ -195,8 +192,8 @@ class UatPassportView(APIView):
                 error_message=error_msg,
                 user=None,
                 verification_obj=None,
-                ip_address=ip_address,
-                user_agent=user_agent,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
             )
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
@@ -211,6 +208,9 @@ class UatPassportView(APIView):
                 response = call_vendor_api_uat(vendor, request.data)
 
                 if response and response.get("http_error"):
+                    print(
+                        f"[DEBUG] Vendor error response: {response.get('error_message')}"
+                    )
                     self._log_passport_request(
                         file_number=file_number,
                         dob=dob,
@@ -223,17 +223,17 @@ class UatPassportView(APIView):
                         error_message=response.get("error_message"),
                         user=None,
                         verification_obj=None,
-                        ip_address=ip_address,
-                        user_agent=user_agent,
+                        ip_address=self.get_client_ip(request),
+                        user_agent=request.META.get("HTTP_USER_AGENT", ""),
                     )
                     continue
-                try:
-                    data = response
-                except Exception:
-                    data = None
+                # try:
+                #     data = response
+                # except Exception:
+                #     data = None
 
                 normalized = normalize_vendor_response(
-                    vendor.vendor_name, data, request.data or {}
+                    vendor.vendor_name, response, request.data or {}
                 )
 
                 if not normalized:
@@ -246,12 +246,12 @@ class UatPassportView(APIView):
                         status_code=502,
                         status="fail",
                         request_payload=request.data,
-                        response_payload=data,
+                        response_payload=response,
                         error_message=error_msg,
                         user=None,
                         verification_obj=None,
-                        ip_address=ip_address,
-                        user_agent=user_agent,
+                        ip_address=self.get_client_ip(request),
+                        user_agent=request.META.get("HTTP_USER_AGENT", ""),
                     )
                     continue
 
@@ -270,8 +270,8 @@ class UatPassportView(APIView):
                     error_message=None,
                     user=None,
                     verification_obj=passport_obj,
-                    ip_address=ip_address,
-                    user_agent=user_agent,
+                    ip_address=self.get_client_ip(request),
+                    user_agent=request.META.get("HTTP_USER_AGENT", ""),
                 )
 
                 return Response(
@@ -297,8 +297,8 @@ class UatPassportView(APIView):
                     error_message=error_msg,
                     user=None,
                     verification_obj=None,
-                    ip_address=ip_address,
-                    user_agent=user_agent,
+                    ip_address=self.get_client_ip(request),
+                    user_agent=request.META.get("HTTP_USER_AGENT", ""),
                 )
                 continue
 
