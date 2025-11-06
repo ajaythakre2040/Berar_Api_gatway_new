@@ -1,7 +1,4 @@
 from django.db import models
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 
 class UatPassportDetails(models.Model):
     client_id = models.CharField(max_length=100, null=True, blank=True)
@@ -18,8 +15,7 @@ class UatPassportDetails(models.Model):
     application_type = models.CharField(max_length=100, null=True, blank=True)
     status_text = models.TextField(null=True, blank=True)
 
-    vendor = models.CharField(max_length=100, null=True, blank=True)
-    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    deleted_by = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -28,4 +24,4 @@ class UatPassportDetails(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.full_name or 'Unknown'} ({self.passport_number or 'N/A'})"
+        return f"{self.file_number or 'Unknown'} ({self.passport_number or 'N/A'})"

@@ -49,7 +49,8 @@ class UatVoterDetailsAPIView(APIView):
                 error_message="Missing required field: id_number",
                 user=user,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=None
             )
             return Response({
                 "success": False,
@@ -75,7 +76,8 @@ class UatVoterDetailsAPIView(APIView):
                 error_message=f"{service_name} service not configured",
                 user=user,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
             )
             return Response({
                 "success": False,
@@ -97,7 +99,8 @@ class UatVoterDetailsAPIView(APIView):
                 error_message=str(e),
                 user=user,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
             )
             return Response({
                 "success": False,
@@ -116,7 +119,8 @@ class UatVoterDetailsAPIView(APIView):
                 error_message=str(e),
                 user=user,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
             )
             return Response({
                 "success": False,
@@ -143,7 +147,8 @@ class UatVoterDetailsAPIView(APIView):
                 user=user,
                 voter_obj=cached,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
             )
             return Response({
                 "success": True,
@@ -165,7 +170,8 @@ class UatVoterDetailsAPIView(APIView):
                 error_message="No vendors assigned for this service",
                 user=user,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
             )
             return Response({
                 "success": False,
@@ -194,16 +200,15 @@ class UatVoterDetailsAPIView(APIView):
                         error_message=response.get("error_message"),
                         user=user,
                         ip_address=ip_address,
-                        user_agent=user_agent
+                        user_agent=user_agent,
+                        created_by=client.id
                     )
-                    continue  # try next vendor
+                    continue  
                 try:
                     data = response
 
-                    # print('this is data print try', data)
                 except Exception:
                     data = None
-                    # print('this is data print Exception', data)
 
                 normalized = normalize_vendor_response(vendor.vendor_name, data or {})
 
@@ -219,7 +224,8 @@ class UatVoterDetailsAPIView(APIView):
                         error_message="No valid data returned",
                         user=user,
                         ip_address=ip_address,
-                        user_agent=user_agent
+                        user_agent=user_agent,
+                        created_by=client.id
                     )
                     continue
 
@@ -236,7 +242,8 @@ class UatVoterDetailsAPIView(APIView):
                     user=user,
                     voter_obj=voter_obj,
                     ip_address=ip_address,
-                    user_agent=user_agent
+                    user_agent=user_agent,
+                    created_by=client.id
                 )
                 return Response({
                     "success": True,
@@ -257,7 +264,8 @@ class UatVoterDetailsAPIView(APIView):
                     error_message=str(e),
                     user=user,
                     ip_address=ip_address,
-                    user_agent=user_agent
+                    user_agent=user_agent,
+                    created_by=client.id
                 )
                 continue
 
@@ -272,7 +280,8 @@ class UatVoterDetailsAPIView(APIView):
             error_message="No vendor returned valid data",
             user=user,
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
+            created_by=client.id
         )
         return Response({
             "success": False,
@@ -297,7 +306,8 @@ class UatVoterDetailsAPIView(APIView):
                 error_message="Missing API key",
                 user=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=None
             )
             return Response({"success": False, "status": 401, "error": "Missing API key"}, status=401)
 
@@ -320,7 +330,8 @@ class UatVoterDetailsAPIView(APIView):
                 error_message="Invalid API key",
                 user=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=None
             )
             return Response({"success": False, "status": 401, "error": "Invalid API key"}, status=401)
 
@@ -347,7 +358,7 @@ class UatVoterDetailsAPIView(APIView):
 
     def _log_request(self, voter_id, vendor_name, endpoint, status_code, status,
                      request_payload=None, response_payload=None, error_message=None,
-                     user=None, voter_obj=None, ip_address=None, user_agent=None):
+                     user=None, voter_obj=None, ip_address=None, user_agent=None, created_by=None):
         UatVoterRequestLog.objects.create(
             voter_detail=voter_obj,
             vendor=vendor_name,
@@ -359,5 +370,6 @@ class UatVoterDetailsAPIView(APIView):
             error_message=error_message,
             user=user,
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
+            created_by=created_by
         )

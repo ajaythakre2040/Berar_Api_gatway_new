@@ -37,4 +37,10 @@ VENDOR_PASSPORT_SERVICE_ENDPOINTS = {
     "surepass": "api/v1/passport/passport/passport-details",
 }
 
+VENDOR_ADDRESS_SERVICE_ENDPOINTS = {
+    "karza": "v3/address",
+    "surepass": "api/v1/ai/parse-address",
+}
+
+
 DEFAULT_COUNTRY = "India"

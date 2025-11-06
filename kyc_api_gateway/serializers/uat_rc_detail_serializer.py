@@ -1,7 +1,12 @@
 from rest_framework import serializers
 from kyc_api_gateway.models import UatRcDetails
 
+
 class UatRcDetailsSerializer(serializers.ModelSerializer):
+    fit_upto = serializers.DateField(source="fit_up_to", allow_null=True, required=False)
+    challan_details = serializers.JSONField(source="blacklist_info", allow_null=True, required=False)
+
+    
     class Meta:
         model = UatRcDetails
         fields = [
@@ -12,7 +17,7 @@ class UatRcDetailsSerializer(serializers.ModelSerializer):
             "permanent_address",
             "mobile_number",
             "registration_date",
-            "fit_upto", 
+            "fit_upto",
             "insurance_company",
             "insurance_policy_number",
             "insurance_upto",
@@ -29,6 +34,7 @@ class UatRcDetailsSerializer(serializers.ModelSerializer):
             "manufacturing_date",
             "manufacturing_date_formatted",
             "tax_upto",
+            "tax_paid_upto",
             "registered_at",
             "seat_capacity",
             "sleeper_capacity",
@@ -37,9 +43,31 @@ class UatRcDetailsSerializer(serializers.ModelSerializer):
             "no_cylinders",
             "vehicle_gross_weight",
             "unladen_weight",
+            "vehicle_chasi_number",
+            "vehicle_engine_number",
+            "cubic_capacity",
+            "pucc_number",
+            "pucc_upto",
+            "permit_number",
+            "permit_issue_date",
+            "permit_valid_from",
+            "permit_valid_upto",
+            "permit_type",
+            "national_permit_number",
+            "national_permit_upto",
+            "national_permit_issued_by",
+            "non_use_status",
+            "non_use_from",
+            "non_use_to",
+            "blacklist_status",
+            "noc_details",
+            "owner_number",
             "rc_status",
+            "challan_details",
+            "variant",
+            "rto_code",
             "latest_by",
             "less_info",
             "client_id",
-            "full_response",
+            "response_metadata",
         ]

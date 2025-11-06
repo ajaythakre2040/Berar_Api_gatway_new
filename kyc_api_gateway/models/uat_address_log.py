@@ -3,23 +3,24 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-class UatPassportRequestLog(models.Model):
+
+class UatAddressMatchRequestLog(models.Model):
     REQUEST_STATUS_CHOICES = (
         ("success", "Success"),
         ("fail", "Fail"),
     )
 
-    passport_verification = models.ForeignKey(
-        "UatPassportDetails",
-        null=True, blank=True,
+    address_match = models.ForeignKey(
+        "UatAddressMatch",
+        null=True,
+        blank=True,
         on_delete=models.SET_NULL,
-        related_name="passport_logs"
+        related_name="address_logs"
     )
 
-    request_id = models.CharField(max_length=100, null=True, blank=True)
-    file_number = models.CharField(max_length=100, null=True, blank=True)
-    dob = models.CharField(max_length=20, null=True, blank=True)
-    passport_number = models.CharField(max_length=50, null=True, blank=True)
+    address1 = models.CharField(max_length=255, null=True, blank=True)
+    address2 = models.CharField(max_length=255, null=True, blank=True)
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
     vendor = models.CharField(max_length=100, null=True, blank=True)
     endpoint = models.CharField(max_length=255, null=True, blank=True)
 
@@ -29,15 +30,16 @@ class UatPassportRequestLog(models.Model):
     response_payload = models.JSONField(null=True, blank=True)
     error_message = models.TextField(null=True, blank=True)
 
-    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
     user_agent = models.CharField(max_length=512, null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
+    updated_by = models.IntegerField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.IntegerField(null=True, blank=True)
 
     class Meta:
-        db_table = "uat_passport_log"
+        db_table = "uat_address_match_log"
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.file_number or 'N/A'} | {self.vendor or 'N/A'} | {self.status}"
+        return f"{self.address1 or 'Unknown'} ↔ {self.address2 or 'Unknown'} | {self.vendor or 'N/A'} | {self.status}"

@@ -56,7 +56,8 @@ class UatBillDetailsAPIView(APIView):
                 error_message=error_msg,
                 user=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=None
             )
             return Response({
                 "success": False,
@@ -86,7 +87,9 @@ class UatBillDetailsAPIView(APIView):
                 error_message=f"{service_name} service not configured",
                 user=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
+
             )
             return Response({
                 "success": False,
@@ -97,6 +100,7 @@ class UatBillDetailsAPIView(APIView):
         try:
             cache_days = self._get_cache_days(client, service_id)
         except PermissionError as e:
+
             self._log_request(
                 customer_id=request.data.get("consumer_id") or request.data.get("id_number"),
                 service_provider=service_provider,
@@ -109,14 +113,17 @@ class UatBillDetailsAPIView(APIView):
                 error_message=str(e),
                 user=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
             )
+
             return Response({
                 "success": False,
                 "status": 403,
                 "error": str(e)
             }, status=403)
         except ValueError as e:
+
             self._log_request(
                 customer_id=request.data.get("consumer_id") or request.data.get("id_number"),
                 service_provider=service_provider,
@@ -129,8 +136,10 @@ class UatBillDetailsAPIView(APIView):
                 error_message=str(e),
                 user=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
             )  
+
             return Response({
                 "success": False,
                 "status": 500,
@@ -160,7 +169,9 @@ class UatBillDetailsAPIView(APIView):
                 user=None,
                 bill_details=cached,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
+
             )
 
             return Response({
@@ -188,7 +199,9 @@ class UatBillDetailsAPIView(APIView):
                 error_message=error_msg,
                 user=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id
+
             )
             return Response({
                 "success": False,
@@ -221,6 +234,8 @@ class UatBillDetailsAPIView(APIView):
                             user=None,
                             ip_address=ip_address,
                             user_agent=user_agent,
+                            created_by=client.id
+
                         )
                         continue
                 try:
@@ -242,7 +257,9 @@ class UatBillDetailsAPIView(APIView):
                         error_message="No valid data returned",
                         user=None,
                         ip_address=ip_address,
-                        user_agent=user_agent
+                        user_agent=user_agent,
+                        created_by=client.id
+
                     )
                     continue
 
@@ -262,7 +279,9 @@ class UatBillDetailsAPIView(APIView):
                             user=None,
                             bill_details=bill_obj,
                             ip_address=ip_address,
-                            user_agent=user_agent
+                            user_agent=user_agent,
+                            created_by=client.id
+
                         )   
                             
                 return Response({
@@ -285,7 +304,9 @@ class UatBillDetailsAPIView(APIView):
                     error_message=str(e),
                     user=None,
                     ip_address=ip_address,
-                    user_agent=user_agent
+                    user_agent=user_agent,
+                    created_by=client.id
+
                 )
                 continue
 
@@ -316,7 +337,9 @@ class UatBillDetailsAPIView(APIView):
                 error_message=error_msg,
                 user=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=None
+
             )
 
             return Response({"success": False, "status": 401, "error": "Missing API key"}, status=401)
@@ -340,7 +363,9 @@ class UatBillDetailsAPIView(APIView):
                 error_message=error_msg,
                 user=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=None
+
             )
 
             return Response({"success": False, "status": 401, "error": "Invalid API key"}, status=401)
@@ -371,7 +396,7 @@ class UatBillDetailsAPIView(APIView):
             deleted_at__isnull=True
         ).select_related("vendor").order_by("priority")
     
-    def _log_request(self, customer_id, service_provider, vendor_name, endpoint, status_code, status, request_payload=None, response_payload=None, error_message=None, user=None, bill_details=None,ip_address=None,user_agent=None):
+    def _log_request(self, customer_id, service_provider, vendor_name, endpoint, status_code, status, request_payload=None, response_payload=None, error_message=None, user=None, bill_details=None,ip_address=None,user_agent=None,created_by=None):
 
         if not isinstance(status_code, int):
             raise ValueError(f"status_code must be an integer, got {status_code!r}")
@@ -389,5 +414,6 @@ class UatBillDetailsAPIView(APIView):
             error_message=error_message,
             user=None,
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
+            created_by=created_by
         )

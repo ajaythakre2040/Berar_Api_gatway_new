@@ -10,24 +10,24 @@ if not SUREPASS_TOKEN:
 
 def build_rc_request(vendor_name, request_data):
     if vendor_name.lower() == "karza":
-
+     
      return {
-            "reg_no": request_data.get("rc_number"),
+            "registrationNumber": request_data.get("rc_number"),
             "consent": request_data.get("consent", "Y"),
+            "partialEngine": "Y",
+            "version": 3.1,
             "clientData": {"caseId": request_data.get("clientData", {}).get("caseId", "123456")},
         }
 
     elif vendor_name.lower() == "surepass":
-        # return {"id_number": request_data.get("rc_number")}
         return {
             "id_number": request_data.get("rc_number")
         }
 
-
     return request_data
 
-
 def call_rc_vendor_api(vendor, request_data):
+    
     vendor_key = vendor.vendor_name.lower()
     endpoint_path = VENDOR_RC_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
@@ -43,6 +43,9 @@ def call_rc_vendor_api(vendor, request_data):
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
     payload = build_rc_request(vendor_key, request_data)
 
+    print('RC Payload:', payload)
+    print('RC URL:', full_url)
+
     headers = {"Content-Type": "application/json"}
     if vendor_key == "karza":
         headers["x-karza-key"] = vendor.uat_api_key
@@ -51,11 +54,9 @@ def call_rc_vendor_api(vendor, request_data):
 
     try:
         response = requests.post(full_url, json=payload, headers=headers)
-        response.raise_for_status()  
-
+        response.raise_for_status()
         try:
-
-            print('Hanlder Response', response.json())
+            print("Handler Response:", response.json())
             return response.json()
         except ValueError:
             return {
@@ -66,7 +67,6 @@ def call_rc_vendor_api(vendor, request_data):
             }
 
     except requests.HTTPError as e:
-        # Capture 400/403/500 error details for logging
         try:
             error_content = response.json()
         except Exception:
@@ -88,83 +88,68 @@ def call_rc_vendor_api(vendor, request_data):
 
 
 def normalize_rc_response(vendor_name, raw_data):
-    if not isinstance(raw_data, dict):
-        print(f"[ERROR] normalize_rc_response received invalid data: {raw_data}")
+    
+    result = raw_data.get("result") or raw_data.get("data") or raw_data
+    if not result:
         return None
 
-    vendor_key = vendor_name.lower()
+    # Common normalization for both vendors
+    normalized = {
+        "client_id": result.get("client_id"),
+        "rc_number": result.get("rc_number") or result.get("registrationNumber"),
+        "fit_up_to": result.get("fitnessUpto") or result.get("fit_up_to"),
+        "registration_date": result.get("registration_date") or result.get("registrationDate"),
+        "owner_name": result.get("owner_name") or result.get("ownerName"),
+        "father_name": result.get("father_name") or result.get("fatherName"),
+        "present_address": result.get("present_address") or result.get("presentAddress"),
+        "permanent_address": result.get("permanent_address") or result.get("permanentAddress"),
+        "mobile_number": result.get("mobile_number") or result.get("rcMobileNo"),
+        "vehicle_category": result.get("vehicle_category") or result.get("vehicleCategory"),
+        "vehicle_category_description": result.get("vehicle_category_description") or result.get("vehicleClassDescription"),
+        "vehicle_chasi_number": result.get("vehicle_chasi_number") or result.get("chassisNumber"),
+        "vehicle_engine_number": result.get("vehicle_engine_number") or result.get("engineNumber"),
+        "maker_description": result.get("maker_description") or result.get("makerDescription"),
+        "maker_model": result.get("maker_model") or result.get("makerModel"),
+        "body_type": result.get("body_type") or result.get("bodyTypeDescription"),
+        "fuel_type": result.get("fuel_type") or result.get("fuelDescription"),
+        "color": result.get("color"),
+        "norms_type": result.get("norms_type") or result.get("normsDescription"),
+        "financer": result.get("financer") or result.get("financier"),
+        "insurance_company": result.get("insurance_company") or result.get("insuranceCompany"),
+        "insurance_policy_number": result.get("insurance_policy_number") or result.get("insurancePolicyNumber"),
+        "insurance_upto": result.get("insurance_upto") or result.get("insuranceUpto"),
+        "registered_at": result.get("registered_at") or result.get("registeredAt"),
+        "tax_paid_upto": result.get("tax_paid_upto") or result.get("taxPaidUpto"),
+        "cubic_capacity": result.get("cubic_capacity") or result.get("cubicCapacity"),
+        "vehicle_gross_weight": result.get("vehicle_gross_weight") or result.get("grossVehicleWeight"),
+        "unladen_weight": result.get("unladen_weight") or result.get("unladenWeight"),
+        "no_cylinders": result.get("no_cylinders") or result.get("numberOfCylinders"),
+        "seat_capacity": result.get("seat_capacity") or result.get("seatingCapacity"),
+        "sleeper_capacity": result.get("sleeper_capacity") or result.get("sleeperCapacity"),
+        "standing_capacity": result.get("standing_capacity") or result.get("standingCapacity"),
+        "wheelbase": result.get("wheelbase"),
+        "manufactured_month_year": result.get("manufacturedMonthYear") or result.get("manufacturing_date"),
+        "puc_expiry_date": result.get("pucExpiryDate") or result.get("pucc_upto"),
+        "pucc_number": result.get("pucNumber") or result.get("pucc_number"),
+        "blacklist_status": result.get("blacklist_status") or result.get("blackListStatus"),
+        "blacklist_info": result.get("blacklist_info") or result.get("blackListInfo") or {},
+        "noc_details": result.get("noc_details") or result.get("nocDetails"),
+        "rc_status": result.get("rc_status") or result.get("rcStatus"),
+        "less_info": result.get("less_info", False),
+        "response_metadata": result.get("response_metadata") or {},
+    }
 
-    if vendor_key == "karza":
-        result = raw_data.get("result", {})
-        return {
-            "vendor": "karza",
-            "client_id": raw_data.get("clientData", {}).get("caseId"),
-            "rc_number": result.get("rc_regn_no"),
-            "owner_name": result.get("rc_owner_name"),
-            "father_name": result.get("rc_f_name"),
-            "present_address": result.get("rc_present_address"),
-            "mobile_number": result.get("rc_mobile_no"),
-            "maker_model": result.get("rc_maker_model"),
-            "maker_description": result.get("rc_maker_desc"),
-            "body_type": result.get("rc_body_type_desc"),
-            "fuel_type": result.get("rc_fuel_desc"),
-            "color": result.get("rc_color"),
-            "insurance_company": result.get("rc_insurance_comp"),
-            "insurance_policy_number": result.get("rc_insurance_policy_no"),
-            "insurance_upto": result.get("rc_insurance_upto"),
-            "fit_upto": result.get("rc_fit_upto"),
-            "registration_date": result.get("rc_regn_dt"),
-            "registered_at": result.get("rc_registered_at"),
-            "tax_upto": result.get("rc_tax_upto"),
-            "financer": result.get("rc_financer"),
-            "rc_status": result.get("rc_status_as_on"),
-        }
-
-    elif vendor_key == "surepass":
-        d = raw_data.get("data", {})
-        return {
-            "vendor": "surepass",
-            "client_id": d.get("client_id"),
-            "rc_number": d.get("rc_number"),
-            "owner_name": d.get("owner_name"),
-            "father_name": d.get("father_name"),
-            "present_address": d.get("present_address"),
-            "permanent_address": d.get("permanent_address"),
-            "mobile_number": d.get("mobile_number"),
-            "maker_model": d.get("maker_model"),
-            "maker_description": d.get("maker_description"),
-            "body_type": d.get("body_type"),
-            "fuel_type": d.get("fuel_type"),
-            "color": d.get("color"),
-            "insurance_company": d.get("insurance_company"),
-            "insurance_policy_number": d.get("insurance_policy_number"),
-            "insurance_upto": d.get("insurance_upto"),
-            "fit_upto": d.get("fit_up_to"),
-            "registration_date": d.get("registration_date"),
-            "registered_at": d.get("registered_at"),
-            "tax_upto": d.get("tax_upto"),
-            "cubic_capacity": d.get("cubic_capacity"),
-            "vehicle_gross_weight": d.get("vehicle_gross_weight"),
-            "seat_capacity": d.get("seat_capacity"),
-            "unladen_weight": d.get("unladen_weight"),
-            "rc_status": d.get("rc_status"),
-        }
-
+    return normalized
 
 def save_rc_data(normalized, created_by):
-    if not normalized:
-        print("[ERROR] Cannot save RC data: normalized is None")
-        return None
+ 
+    if not normalized or not normalized.get("rc_number"):
+        raise ValueError("RC number missing in normalized data")
 
-    rc_fields = [f.name for f in UatRcDetails._meta.get_fields()]
+    rc_obj, created = UatRcDetails.objects.update_or_create(
+        rc_number=normalized.get("rc_number"),
+        defaults={**normalized, "created_by": created_by},
+    )
 
-    filtered_data = {k: v for k, v in normalized.items() if k in rc_fields}
-
-    filtered_data["created_by"] = created_by
-
-    try:
-        return UatRcDetails.objects.create(**filtered_data)
-    except Exception as e:
-        print(f"[ERROR] Failed saving RCDetails: {e}")
-        return None
-
+    print("RC Data Saved:", rc_obj.rc_number, "| Created:", created)
+    return rc_obj

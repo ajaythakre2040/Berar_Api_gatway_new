@@ -32,6 +32,7 @@ class UatDrivingLicenseRequestLog(models.Model):
     error_message = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.IntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "uat_driving_license_request_log"

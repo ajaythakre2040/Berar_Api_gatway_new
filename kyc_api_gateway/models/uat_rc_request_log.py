@@ -29,6 +29,7 @@ class UatRcRequestLog(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.IntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "uat_rc_request_log"

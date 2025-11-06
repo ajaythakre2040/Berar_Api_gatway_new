@@ -53,6 +53,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 dl_obj=None,
+                created_by=None,
             )
             return Response({"success": False, "status": 400, "error": error_msg}, status=400)
 
@@ -75,6 +76,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 dl_obj=None,
+                created_by=client.id,
             )
             return Response({"success": False, "status": 403, "error": error_msg}, status=403)
 
@@ -92,6 +94,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message=str(e),
                 dl_obj=None,
+                created_by=client.id,
             )
             return Response({"success": False, "status": 403, "error": str(e)}, status=403)
 
@@ -131,6 +134,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=serializer.data,
                 error_message=None,
                 dl_obj=cached,
+                created_by=client.id,
             )
             return Response(
                 {"success": True, "status": 200, "message": "Cached data", "data": serializer.data}
@@ -150,6 +154,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 dl_obj=None,
+                created_by=client.id,
             )
             return Response({"success": False, "status": 403, "error": error_msg}, status=403)
 
@@ -170,6 +175,7 @@ class UatDrivingLicenseAPIView(APIView):
                         response_payload=response.get("vendor_response"),
                         error_message=response.get("error_message"),
                         dl_obj=None,
+                        created_by=client.id,
                     )
                     continue
 
@@ -195,6 +201,7 @@ class UatDrivingLicenseAPIView(APIView):
                         response_payload=data,
                         error_message=f"Normalization failed for vendor {vendor.vendor_name}",
                         dl_obj=None,
+                        created_by=client.id,
                     )
                     continue
 
@@ -212,6 +219,7 @@ class UatDrivingLicenseAPIView(APIView):
                     response_payload=serializer.data,
                     error_message=None,
                     dl_obj=dl_obj,
+                    created_by=client.id,
                 )
                 return Response(
                     {
@@ -234,6 +242,7 @@ class UatDrivingLicenseAPIView(APIView):
                     response_payload=None,
                     error_message=str(e),
                     dl_obj=None,
+                    created_by=client.id,
                 )
                 continue
 
@@ -256,6 +265,8 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message="Missing API key",
                 dl_obj=None,
+                created_by=None,
+
             )
             return Response({"success": False, "status": 401, "error": "Missing API key"}, status=401)
 
@@ -272,6 +283,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message="Invalid API key",
                 dl_obj=None,
+                created_by=None,
             )
             return Response({"success": False, "status": 401, "error": "Invalid API key"}, status=401)
 
@@ -305,6 +317,7 @@ class UatDrivingLicenseAPIView(APIView):
         dl_obj=None,
         user=None,
         name=None,
+        created_by=None,
     ):
         if not isinstance(status_code, int):
             status_code = 500
@@ -321,5 +334,6 @@ class UatDrivingLicenseAPIView(APIView):
             error_message=error_message,
             user=user,
             name=name,
+            created_by=created_by,
         )
 

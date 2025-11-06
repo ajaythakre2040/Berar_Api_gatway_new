@@ -170,7 +170,8 @@ class NameMatchUatAPIView(APIView):
                 user=None,
                 match_obj=cached,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id,
             )
 
             return Response({
@@ -198,7 +199,8 @@ class NameMatchUatAPIView(APIView):
                 user=None,
                 match_obj=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id,
             )
             return Response({
                 "success": False,
@@ -228,7 +230,8 @@ class NameMatchUatAPIView(APIView):
                         user=None,
                         match_obj=None,
                         ip_address=ip_address,
-                        user_agent=user_agent
+                        user_agent=user_agent,
+                        created_by=client.id,
                     )
                     continue 
                 try:
@@ -253,7 +256,9 @@ class NameMatchUatAPIView(APIView):
                         user=None,
                         match_obj=None,
                         ip_address=ip_address,
-                        user_agent=user_agent
+                        user_agent=user_agent,
+                        created_by=client.id,
+
                     )
                     continue
                 
@@ -273,7 +278,8 @@ class NameMatchUatAPIView(APIView):
                     user=None,
                     match_obj=name_obj,
                     ip_address=ip_address,
-                    user_agent=user_agent
+                    user_agent=user_agent,
+                    created_by=client.id,
                 )
 
                 return Response({
@@ -298,7 +304,8 @@ class NameMatchUatAPIView(APIView):
                     user=None,
                     match_obj=None,
                     ip_address=ip_address,
-                    user_agent=user_agent
+                    user_agent=user_agent,
+                    created_by=None,
                 )
                 continue
             
@@ -331,7 +338,9 @@ class NameMatchUatAPIView(APIView):
                 user=None,
                 match_obj=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=None,
+
             )
         
             return Response({
@@ -360,7 +369,9 @@ class NameMatchUatAPIView(APIView):
                 user=None,
                 match_obj=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=None,
+
             )
 
             return Response({
@@ -396,7 +407,7 @@ class NameMatchUatAPIView(APIView):
         ).select_related("vendor").order_by("priority")
     
 
-    def _log_request(self, name1, name2, vendor_name, endpoint, status_code, status, request_payload=None, response_payload=None, error_message=None, user=None, match_obj=None, ip_address=None, user_agent=None):
+    def _log_request(self, name1, name2, vendor_name, endpoint, status_code, status, request_payload=None, response_payload=None, error_message=None, user=None, match_obj=None, ip_address=None, user_agent=None, created_by=None):
 
          if not isinstance(status_code, int):
             raise ValueError(f"status_code must be an integer, got {status_code!r}")
@@ -415,5 +426,7 @@ class NameMatchUatAPIView(APIView):
                 name_match=match_obj,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=created_by,
+
          )
 
