@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "auth_system",
     "kyc_api_gateway",
+    "client_auth"
 ]
 
 EMAIL_BACKEND = config("EMAIL_BACKEND")
