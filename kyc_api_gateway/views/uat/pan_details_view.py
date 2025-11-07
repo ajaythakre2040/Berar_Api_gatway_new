@@ -17,12 +17,26 @@ from kyc_api_gateway.services.uat.pan_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_pan_request_log import UatPanRequestLog
-
+import re
 
 class UatPanDetailsAPIView(APIView):
     authentication_classes = []
     permission_classes = []
 
+
+    @staticmethod
+    def sanitize_input(value):
+        if not value:
+            return value
+        value = value.strip()
+
+        clean_value = re.sub(r"<.*?>", "", value)
+
+        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
+            raise ValueError("Invalid characters detected in input.")
+
+        return clean_value
+    
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
@@ -32,7 +46,19 @@ class UatPanDetailsAPIView(APIView):
         return ip
 
     def post(self, request):
-        pan = (request.data.get("pan") or "").strip().upper()
+        
+        try:
+            pan = self.sanitize_input(request.data.get("pan"))
+            if pan:
+                pan = pan.strip().upper()
+        except ValueError as e:
+            return Response({
+                "success": False,
+                "status": 400,
+                "error": str(e)
+            }, status=400)
+
+
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
 

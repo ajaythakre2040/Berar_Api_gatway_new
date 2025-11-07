@@ -13,13 +13,26 @@ from kyc_api_gateway.serializers.uat_name_match_serializer import UatNameMatchSe
 
 from kyc_api_gateway.services.uat.name_handler import call_vendor_api_uat, normalize_vendor_response , save_name_match_uat 
 from constant import KYC_MY_SERVICES
-
+import re
 class NameMatchUatAPIView(APIView):
 
     authentication_classes = []
     permission_classes = []
 
+    @staticmethod
+    def sanitize_input(value):
+        if not value:
+            return value
+        value = value.strip()
+
+        clean_value = re.sub(r"<.*?>", "", value)
+
+        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
+            raise ValueError("Invalid characters detected in input.")
+
+        return clean_value
     
+
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
@@ -31,9 +44,17 @@ class NameMatchUatAPIView(APIView):
 
     def post(self, request):
 
-        name1 = request.data.get("name_1")
-        name2 = request.data.get("name_2")
-
+        try:
+            name1 = self.sanitize_input(request.data.get("name_1"))
+            name2 = self.sanitize_input(request.data.get("name_2"))
+        except ValueError as e:
+            return Response({
+                "success": False,
+                "status": 400,
+                "error": str(e)
+            }, status=400)  
+        
+        
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
 

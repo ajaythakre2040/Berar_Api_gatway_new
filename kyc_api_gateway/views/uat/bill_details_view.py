@@ -13,11 +13,25 @@ from kyc_api_gateway.serializers.uat_bill_details_serializer import UatElectrici
 from kyc_api_gateway.services.uat.bill_handler import call_vendor_api_uat, save_bill_data, normalize_vendor_response
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_bill_request_log import UatBillRequestLog
+import re
 
 
 class UatBillDetailsAPIView(APIView):
     authentication_classes = []
     permission_classes = []
+
+    @staticmethod
+    def sanitize_input(value):
+        if not value:
+            return value
+        value = value.strip()
+
+        clean_value = re.sub(r"<.*?>", "", value)
+
+        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
+            raise ValueError("Invalid characters detected in input.")
+
+        return clean_value
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -30,8 +44,16 @@ class UatBillDetailsAPIView(APIView):
 
     def post(self, request):
 
-        consumer_id = request.data.get("consumer_id")
-        service_provider = request.data.get("service_provider")
+        try:
+            consumer_id = self.sanitize_input(request.data.get("consumer_id"))
+            service_provider = self.sanitize_input(request.data.get("service_provider"))
+        except ValueError as e:
+            return Response({
+                "success": False,
+                "status": 400,
+                "error": str(e)
+            }, status=400)
+
 
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get('HTTP_USER_AGENT', '')

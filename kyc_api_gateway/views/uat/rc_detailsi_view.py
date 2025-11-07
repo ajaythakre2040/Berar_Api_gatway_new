@@ -17,11 +17,24 @@ from kyc_api_gateway.services.uat.rc_handler import (
     save_rc_data,
 )
 from constant import KYC_MY_SERVICES
-
+import re
 
 class RcUatAPIView(APIView):
     authentication_classes = []
     permission_classes = []
+
+    @staticmethod
+    def sanitize_input(value):
+        if not value:
+            return value
+        value = value.strip()
+
+        clean_value = re.sub(r"<.*?>", "", value)
+
+        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
+            raise ValueError("Invalid characters detected in input.")
+
+        return clean_value
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -33,7 +46,17 @@ class RcUatAPIView(APIView):
 
     def post(self, request):
 
-        rc_number = (request.data.get("rc_number") or "").strip().upper()
+        try:
+            rc_number = self.sanitize_input(request.data.get("rc_number"))
+            if rc_number:
+                rc_number = rc_number.strip().upper()
+        except ValueError as e:
+            return Response({
+                "success": False,
+                "status": 400,
+                "error": str(e)
+            }, status=400)
+
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         endpoint = request.path
