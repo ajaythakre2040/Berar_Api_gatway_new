@@ -30,7 +30,8 @@ class UatDrivingLicenseRequestLog(models.Model):
     request_payload = models.JSONField(null=True, blank=True)
     response_payload = models.JSONField(null=True, blank=True)
     error_message = models.TextField(null=True, blank=True)
-
+    user_agent = models.CharField(max_length=512, null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

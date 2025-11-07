@@ -22,7 +22,6 @@ def format_dob_for_vendor(vendor_name, dob_str):
         return dob_str
 
 
-
 def build_dl_request_uat(vendor_name, request_data):
     vendor_name = vendor_name.lower()
     
@@ -46,9 +45,8 @@ def build_dl_request_uat(vendor_name, request_data):
     return None
 
 
-
 # def call_vendor_api_uat(vendor, request_data):
-    
+
 #     vendor_key = vendor.vendor_name.lower()
 #     endpoint_path = VENDOR_DRIVING_LICENSE_ENDPOINTS.get(vendor_key)
 
@@ -148,7 +146,7 @@ def call_vendor_api_uat(vendor, request_data):
             "error_message": f"{vendor.vendor_name} request failed: {str(e)}"
         }
 
-    
+
 def normalize_vendor_response(vendor_name, raw_data, request_data=None):
     vendor_name = vendor_name.lower()
     
@@ -263,3 +261,49 @@ def sanitize_decimal(value):
         return Decimal(str(value))
     except Exception:
         return None
+
+
+def call_dynamic_vendor_api(url, request_data):
+    headers = {"Content-Type": "application/json"}
+    vendor_name = request_data.get("vendor")
+    header_key_name = request_data.get("header_key_name")
+    api_key = request_data.get("api_key")
+   
+    if vendor_name == "karza":
+        headers["x-karza-key"] = api_key
+    elif vendor_name == "surepass":
+        headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
+    if header_key_name and api_key:
+        headers[header_key_name] = api_key
+    payload = build_dl_request_uat(vendor_name, request_data)
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+       
+        response.raise_for_status()
+        try:
+            return response.json()
+        except ValueError:
+            return {
+                "http_error": True,
+                "status_code": response.status_code,
+                "vendor_response": response.text,
+                "error_message": "Invalid JSON response",
+            }
+    except requests.HTTPError as e:
+        try:
+            error_content = response.json()
+        except Exception:
+            error_content = response.text
+        return {
+            "http_error": True,
+            "status_code": response.status_code,
+            "vendor_response": error_content,
+            "error_message": str(e),
+        }
+    except Exception as e:
+        return {
+            "http_error": True,
+            "status_code": None,
+            "vendor_response": None,
+            "error_message": str(e),
+        }
