@@ -17,12 +17,26 @@ from kyc_api_gateway.services.uat.passport_handler import (
     save_verification,
 )
 from constant import KYC_MY_SERVICES
-
+import re
 
 class UatPassportView(APIView):
 
     authentication_classes = []
     permission_classes = []
+
+
+    @staticmethod
+    def sanitize_input(value):
+        if not value:
+            return value
+        value = value.strip()
+
+        clean_value = re.sub(r"<.*?>", "", value)
+
+        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
+            raise ValueError("Invalid characters detected in input.")
+
+        return clean_value
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -34,19 +48,25 @@ class UatPassportView(APIView):
 
     def post(self, request):
 
-        file_number = request.data.get("file_number")
-        dob = request.data.get("dob")
+
+        try:
+            file_number = self.sanitize_input(request.data.get("file_number"))
+            dob = self.sanitize_input(request.data.get("dob"))
+        except ValueError as e:
+                return Response({
+                    "success": False,
+                    "status": 400,
+                    "error": str(e)
+                }, status=400)
 
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
-
         if not file_number or not dob or file_number.strip() == "":
             missing = []
             if not file_number or file_number.strip() == "":
                 missing.append("file_number")
             if not dob or dob.strip() == "":
                 missing.append("dob")
-
             error_msg = f"Missing required fields: {', '.join(missing)}"
             self._log_passport_request(
                 file_number=file_number,
@@ -63,19 +83,14 @@ class UatPassportView(APIView):
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
-
             return Response(
                 {"success": False, "status": 400, "error": error_msg}, status=400
             )
-
         client = self._authenticate_client(request)
         if isinstance(client, Response):
             return client
-
         service_name = "PASSPORT"
-
         service_id = KYC_MY_SERVICES.get(service_name.upper())
-
         if not service_id:
             error_msg = "Passport  service not assigned"
             self._log_passport_request(
@@ -96,12 +111,9 @@ class UatPassportView(APIView):
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
             )
-
         try:
             cache_days = self._get_cache_days(client, service_id)
-
         except PermissionError as e:
-
             self._log_passport_request(
                 file_number=file_number,
                 dob=dob,
@@ -120,7 +132,6 @@ class UatPassportView(APIView):
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
             )
-
         except ValueError as e:
             self._log_passport_request(
                 file_number=file_number,
@@ -140,15 +151,12 @@ class UatPassportView(APIView):
             return Response(
                 {"success": False, "status": 500, "error": str(e)}, status=500
             )
-
         days_ago = timezone.now() - timedelta(days=cache_days)
         file_number = request.data.get("file_number").strip()
         dob = request.data.get("dob").strip()
-
         cached = UatPassportDetails.objects.filter(
             file_number__iexact=file_number, dob__iexact=dob, created_at__gte=days_ago
         ).first()
-
         if cached:
             serializer = UatPassportSerializer(cached)
             self._log_passport_request(
@@ -166,7 +174,6 @@ class UatPassportView(APIView):
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
-
             return Response(
                 {
                     "success": True,
@@ -175,12 +182,10 @@ class UatPassportView(APIView):
                     "data": serializer.data,
                 }
             )
-
         vendors = self._get_priority_vendors(client, service_id)
         print(
             f"[DEBUG] Found {vendors.count()} priority vendors for client={client.id}, service_id={service_id}"
         )
-
         if not vendors.exists():
             error_msg = "No vendors configured for Name Match service"
             self._log_passport_request(
@@ -201,15 +206,11 @@ class UatPassportView(APIView):
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
             )
-
         endpoint = request.path
-
         for vp in vendors:
             vendor = vp.vendor
-
             try:
                 response = call_vendor_api_uat(vendor, request.data)
-
                 if response and response.get("http_error"):
                     self._log_passport_request(
                         file_number=file_number,
@@ -229,12 +230,17 @@ class UatPassportView(APIView):
                     continue
                 try:
                     data = response
+
+                    print(f"[DEBUG] Vendor {vendor.vendor_name} response data: {data}")
+
+
                 except Exception:
                     data = None
-
                 normalized = normalize_vendor_response(
                     vendor.vendor_name, data, request.data or {}
                 )
+
+                print(f"[DEBUG] Normalized data from vendor {vendor.vendor_name}: {normalized}")
 
                 if not normalized:
                     error_msg = f"Normalization failed for vendor {vendor.vendor_name}"
@@ -254,10 +260,8 @@ class UatPassportView(APIView):
                         user_agent=user_agent,
                     )
                     continue
-
-                passport_obj = save_verification(normalized, client.id, vendor)
+                passport_obj = save_verification(normalized)
                 serializer = UatPassportSerializer(passport_obj)
-
                 self._log_passport_request(
                     file_number=file_number,
                     dob=dob,
@@ -273,7 +277,6 @@ class UatPassportView(APIView):
                     ip_address=ip_address,
                     user_agent=user_agent,
                 )
-
                 return Response(
                     {
                         "success": True,
@@ -282,7 +285,6 @@ class UatPassportView(APIView):
                         "data": serializer.data,
                     }
                 )
-
             except Exception as e:
                 error_msg = f"Request to vendor {vendor.vendor_name} failed: {str(e)}"
                 self._log_passport_request(
@@ -301,7 +303,6 @@ class UatPassportView(APIView):
                     user_agent=user_agent,
                 )
                 continue
-
         return Response(
             {"success": False, "status": 404, "error": "No vendor returned valid data"},
             status=404,
@@ -331,6 +332,7 @@ class UatPassportView(APIView):
                 verification_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=None,
             )
 
             return Response(
@@ -357,6 +359,7 @@ class UatPassportView(APIView):
                 verification_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=None,
             )
 
             return Response(
@@ -405,6 +408,7 @@ class UatPassportView(APIView):
         verification_obj=None,
         ip_address=None,
         user_agent=None,
+        created_by=None,
     ):
 
         if not isinstance(status_code, int):
@@ -424,4 +428,5 @@ class UatPassportView(APIView):
             passport_verification=verification_obj,
             ip_address=ip_address,
             user_agent=user_agent,
+            created_by=created_by
         )

@@ -17,12 +17,26 @@ from kyc_api_gateway.services.uat.pan_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_pan_request_log import UatPanRequestLog
-
+import re
 
 class UatPanDetailsAPIView(APIView):
     authentication_classes = []
     permission_classes = []
 
+
+    @staticmethod
+    def sanitize_input(value):
+        if not value:
+            return value
+        value = value.strip()
+
+        clean_value = re.sub(r"<.*?>", "", value)
+
+        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
+            raise ValueError("Invalid characters detected in input.")
+
+        return clean_value
+    
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
@@ -32,7 +46,19 @@ class UatPanDetailsAPIView(APIView):
         return ip
 
     def post(self, request):
-        pan = (request.data.get("pan") or "").strip().upper()
+        
+        try:
+            pan = self.sanitize_input(request.data.get("pan"))
+            if pan:
+                pan = pan.strip().upper()
+        except ValueError as e:
+            return Response({
+                "success": False,
+                "status": 400,
+                "error": str(e)
+            }, status=400)
+
+
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
 
@@ -50,6 +76,7 @@ class UatPanDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=None,
             )
             return Response(
                 {"success": False, "status": 400, "error": error_msg}, status=400
@@ -76,6 +103,7 @@ class UatPanDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=client.id,
             )
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
@@ -99,7 +127,8 @@ class UatPanDetailsAPIView(APIView):
                 user=None,
                 match_obj=None,
                 ip_address=ip_address,
-                user_agent=user_agent
+                user_agent=user_agent,
+                created_by=client.id,
             )
             return Response({
                 "success": False,
@@ -120,6 +149,7 @@ class UatPanDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=client.id,
             )
             return Response({
                 "success": False,
@@ -148,6 +178,7 @@ class UatPanDetailsAPIView(APIView):
                 pan_details=cached,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=client.id,
             )
             return Response(
                 {"success": True, "status": 200, "message": "Cached data", "data": serializer.data}
@@ -172,6 +203,7 @@ class UatPanDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=client.id,
             )
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
@@ -196,6 +228,7 @@ class UatPanDetailsAPIView(APIView):
                             error_message=response.get("error_message"),
                             ip_address=ip_address,
                             user_agent=user_agent,
+                            created_by=client.id,
                         )
                         continue
                 data = None
@@ -217,6 +250,7 @@ class UatPanDetailsAPIView(APIView):
                         error_message="No valid data returned",
                         ip_address=ip_address,
                         user_agent=user_agent,
+                        created_by=client.id,
                     )
                     continue
 
@@ -235,6 +269,7 @@ class UatPanDetailsAPIView(APIView):
                     pan_details=pan_obj,
                     ip_address=ip_address,
                     user_agent=user_agent,
+                    created_by=client.id,
                 )
                 return Response(
                     {
@@ -257,6 +292,7 @@ class UatPanDetailsAPIView(APIView):
                     error_message=str(e),
                     ip_address=ip_address,
                     user_agent=user_agent,
+                    created_by=client.id,
                 )
                 continue
 
@@ -282,6 +318,7 @@ class UatPanDetailsAPIView(APIView):
                 request_payload=request.data,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=None,
             )
             return Response({"success": False, "status": 401, "error": "Missing API key"}, status=401)
 
@@ -300,6 +337,7 @@ class UatPanDetailsAPIView(APIView):
                 request_payload=request.data,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=None,
             )
             return Response({"success": False, "status": 401, "error": "Invalid API key"}, status=401)
 
@@ -345,6 +383,8 @@ class UatPanDetailsAPIView(APIView):
         pan_details=None,
         ip_address=None,
         user_agent=None,
+        created_by=None,
+
     ):
         if not isinstance(status_code, int):
             raise ValueError(f"status_code must be an integer, got {status_code!r}")
@@ -362,4 +402,6 @@ class UatPanDetailsAPIView(APIView):
             pan_details=pan_details,
             ip_address=ip_address,
             user_agent=user_agent,
+            created_by=created_by,
+
         )

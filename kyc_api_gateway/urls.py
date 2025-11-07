@@ -60,7 +60,7 @@ from kyc_api_gateway.views.uat.driving_license_details_view import (
     UatDrivingLicenseAPIView,
 )
 from kyc_api_gateway.views.uat.passport_view import UatPassportView
-
+from kyc_api_gateway.views.uat.address_details_view import AddressMatchUatAPIView
 
 # production
 from kyc_api_gateway.views.pro.bill_details_view import ProBillDetailsAPIView
@@ -145,53 +145,11 @@ urlpatterns = [
         "uat_voter_details/", UatVoterDetailsAPIView.as_view(), name="uat_voter_details"
     ),
     path("uat_rc_details/", RcUatAPIView.as_view(), name="uat_rc_details"),
-    path(
-        "uat_driving_license_details/",
-        UatDrivingLicenseAPIView.as_view(),
-        name="uat_driving_license_details",
-    ),
-    path(
-        "uat_passport_details/", UatPassportView.as_view(), name="uat_passport_details"
-    ),
-    path(
-        "uat_vendor_driving_details/",
-        VendorUatDrivingDetailsAPIView.as_view(),
-        name="vendor_driving_details",
-    ),
-    path(
-        "uat_vendor_pan_details/",
-        VendorUatPanDetailsAPIView.as_view(),
-        name="vendor_pan_details",
-    ),
-    path(
-        "uat_vendor_bill_details/",
-        VendorUatBillDetailsAPIView.as_view(),
-        name="vendor_bill_details",
-    ),
-    path(
-        "uat_vendor_voter_details/",
-        VendorUatVoterDetailsAPIView.as_view(),
-        name="vendor_voter_details",
-    ),
-    path(
-        "uat_vendor_name_details/",
-        VendorUatNameDetailsAPIView.as_view(),
-        name="vendor_name_details",
-    ),
-    path(
-        "uat_vendor_rc_details/",
-        VendorUatRcDetailsAPIView.as_view(),
-        name="vendor_rc_details",
-    ),
-    path(
-        "uat_vendor_passport_details/",
-        VendorUatPassportDetailsAPIView.as_view(),
-        name="vendor_passport_details",
-    ),
-    # production
-    path(
-        "prod_bill_details/", ProBillDetailsAPIView.as_view(), name="prod_bill_details"
-    ),
+    path("uat_driving_license_details/", UatDrivingLicenseAPIView.as_view(), name="uat_driving_license_details"),
+    path("uat_passport_details/", UatPassportView.as_view(), name="uat_passport_details"),
+
+    #production
+    path("prod_bill_details/", ProBillDetailsAPIView.as_view(), name="prod_bill_details"),
     path("prod_pan_details/", ProPanDetailsAPIView.as_view(), name="prod_pan_details"),
     path("prod_name_details/", ProNameMatchAPIView.as_view(), name="prod_name_details"),
     path(

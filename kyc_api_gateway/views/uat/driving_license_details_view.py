@@ -18,12 +18,26 @@ from kyc_api_gateway.services.uat.driving_license_handler import (
     save_uat,
 )
 from constant import KYC_MY_SERVICES
-
+import re
 
 class UatDrivingLicenseAPIView(APIView):
 
     authentication_classes = []
     permission_classes = []
+
+    @staticmethod
+    def sanitize_input(value):
+        if not value:
+            return value
+        value = value.strip()
+
+        clean_value = re.sub(r"<.*?>", "", value)
+
+        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
+            raise ValueError("Invalid characters detected in input.")
+
+        return clean_value
+
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -32,8 +46,17 @@ class UatDrivingLicenseAPIView(APIView):
         return request.META.get("REMOTE_ADDR")
 
     def post(self, request):
-        license_no = request.data.get("license_no")
-        dob = request.data.get("dob")
+
+        try:
+            license_no = self.sanitize_input(request.data.get("license_no"))
+            dob = self.sanitize_input(request.data.get("dob"))
+        except ValueError as e:
+            return Response({
+                "success": False,
+                "status": 400,
+                "error": str(e)
+            }, status=400)
+    
 
         if not license_no or not dob:
             missing = []
@@ -53,6 +76,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 dl_obj=None,
+                created_by=None,
             )
             return Response({"success": False, "status": 400, "error": error_msg}, status=400)
 
@@ -75,6 +99,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 dl_obj=None,
+                created_by=client.id,
             )
             return Response({"success": False, "status": 403, "error": error_msg}, status=403)
 
@@ -92,6 +117,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message=str(e),
                 dl_obj=None,
+                created_by=client.id,
             )
             return Response({"success": False, "status": 403, "error": str(e)}, status=403)
 
@@ -131,6 +157,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=serializer.data,
                 error_message=None,
                 dl_obj=cached,
+                created_by=client.id,
             )
             return Response(
                 {"success": True, "status": 200, "message": "Cached data", "data": serializer.data}
@@ -150,6 +177,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message=error_msg,
                 dl_obj=None,
+                created_by=client.id,
             )
             return Response({"success": False, "status": 403, "error": error_msg}, status=403)
 
@@ -170,6 +198,7 @@ class UatDrivingLicenseAPIView(APIView):
                         response_payload=response.get("vendor_response"),
                         error_message=response.get("error_message"),
                         dl_obj=None,
+                        created_by=client.id,
                     )
                     continue
 
@@ -195,6 +224,7 @@ class UatDrivingLicenseAPIView(APIView):
                         response_payload=data,
                         error_message=f"Normalization failed for vendor {vendor.vendor_name}",
                         dl_obj=None,
+                        created_by=client.id,
                     )
                     continue
 
@@ -212,6 +242,7 @@ class UatDrivingLicenseAPIView(APIView):
                     response_payload=serializer.data,
                     error_message=None,
                     dl_obj=dl_obj,
+                    created_by=client.id,
                 )
                 return Response(
                     {
@@ -234,6 +265,7 @@ class UatDrivingLicenseAPIView(APIView):
                     response_payload=None,
                     error_message=str(e),
                     dl_obj=None,
+                    created_by=client.id,
                 )
                 continue
 
@@ -256,6 +288,8 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message="Missing API key",
                 dl_obj=None,
+                created_by=None,
+
             )
             return Response({"success": False, "status": 401, "error": "Missing API key"}, status=401)
 
@@ -272,6 +306,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message="Invalid API key",
                 dl_obj=None,
+                created_by=None,
             )
             return Response({"success": False, "status": 401, "error": "Invalid API key"}, status=401)
 
@@ -305,6 +340,7 @@ class UatDrivingLicenseAPIView(APIView):
         dl_obj=None,
         user=None,
         name=None,
+        created_by=None,
     ):
         if not isinstance(status_code, int):
             status_code = 500
@@ -321,5 +357,6 @@ class UatDrivingLicenseAPIView(APIView):
             error_message=error_message,
             user=user,
             name=name,
+            created_by=created_by,
         )
 

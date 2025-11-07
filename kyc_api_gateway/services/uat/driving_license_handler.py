@@ -45,8 +45,9 @@ def build_dl_request_uat(vendor_name, request_data):
     return None
 
 
-# def call_vendor_api_uat(vendor, request_data):
 
+# def call_vendor_api_uat(vendor, request_data):
+    
 #     vendor_key = vendor.vendor_name.lower()
 #     endpoint_path = VENDOR_DRIVING_LICENSE_ENDPOINTS.get(vendor_key)
 

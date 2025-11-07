@@ -34,5 +34,6 @@ KYC_MY_SERVICES = {
     "NAME": 4,
     "RC": 5,
     "DRIVING": 6,
-    "PASSPORT": 7,
+    "PASSPORT": 8,
+    "ADDRESS": 9,
 }

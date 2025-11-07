@@ -1,6 +1,7 @@
+
+
 from rest_framework import serializers
 from kyc_api_gateway.models import UatPassportDetails
-
 
 class UatPassportSerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,6 +18,6 @@ class UatPassportSerializer(serializers.ModelSerializer):
             "date_of_application",
             "application_type",
             "status_text",
-            "vendor",
             "created_at",
+            "updated_at",
         ]

@@ -17,11 +17,24 @@ from kyc_api_gateway.services.uat.rc_handler import (
     save_rc_data,
 )
 from constant import KYC_MY_SERVICES
-
+import re
 
 class RcUatAPIView(APIView):
     authentication_classes = []
     permission_classes = []
+
+    @staticmethod
+    def sanitize_input(value):
+        if not value:
+            return value
+        value = value.strip()
+
+        clean_value = re.sub(r"<.*?>", "", value)
+
+        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
+            raise ValueError("Invalid characters detected in input.")
+
+        return clean_value
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -33,7 +46,17 @@ class RcUatAPIView(APIView):
 
     def post(self, request):
 
-        rc_number = (request.data.get("rc_number") or "").strip().upper()
+        try:
+            rc_number = self.sanitize_input(request.data.get("rc_number"))
+            if rc_number:
+                rc_number = rc_number.strip().upper()
+        except ValueError as e:
+            return Response({
+                "success": False,
+                "status": 400,
+                "error": str(e)
+            }, status=400)
+
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         endpoint = request.path
@@ -54,6 +77,7 @@ class RcUatAPIView(APIView):
                 rc_details=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=None
             )
             return Response({"success": False, "status": 400, "error": "RC number required"}, status=400)
 
@@ -78,6 +102,7 @@ class RcUatAPIView(APIView):
                 rc_details=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=client.id
             )
             return Response({"success": False, "status": 403, "error": error_msg}, status=403)
 
@@ -97,6 +122,7 @@ class RcUatAPIView(APIView):
                 rc_details=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=client.id
             )
             return Response({"success": False, "status": 403, "error": str(e)}, status=403)
         except ValueError as e:
@@ -113,6 +139,7 @@ class RcUatAPIView(APIView):
                 rc_details=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=client.id
             )
             return Response({"success": False, "status": 500, "error": str(e)}, status=500)
 
@@ -134,6 +161,7 @@ class RcUatAPIView(APIView):
                 rc_details=cached,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=client.id
             )
             return Response({"success": True, "status": 200, "message": "Cached data", "data": serializer.data})
 
@@ -155,6 +183,7 @@ class RcUatAPIView(APIView):
                 rc_details=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=client.id
             )
             return Response({"success": False, "status": 403, "error": error_msg}, status=403)
 
@@ -180,23 +209,28 @@ class RcUatAPIView(APIView):
                         rc_details=None,
                         ip_address=ip_address,
                         user_agent=user_agent,
+                        created_by=client.id
                     )
                     continue
                                 
 
                 data = None
                 try:
-                    if hasattr(response, "json"):
-                        data = response
-
-                        print('API DATA', data)
-                    else:
-                        data = response
+                    
+                    data = response if isinstance(response, dict) else {}
+                    # print('API DATA', data)
+                    
                 except Exception:
                     data = None
 
                 normalized = normalize_rc_response(vendor.vendor_name, data or {})
+
+                # print('NORMALIZED DATA', normalized)
+
                 if not normalized:
+                    
+                    # print("[ERROR] Normalized data is empty, skipping save.")
+
                     self._log_request(
                         rc_number=rc_number,
                         vendor=vendor.vendor_name,
@@ -210,11 +244,18 @@ class RcUatAPIView(APIView):
                         rc_details=None,
                         ip_address=ip_address,
                         user_agent=user_agent,
+                        created_by=client.id    
                     )
                     continue
 
                 rc_obj = save_rc_data(normalized, client.id)
+
+                print('SAVED RC OBJ', rc_obj)
+
                 serializer = UatRcDetailsSerializer(rc_obj)
+
+                print('SERIALIZER DATA', serializer.data)
+
 
                 self._log_request(
                     rc_number=rc_number,
@@ -229,6 +270,7 @@ class RcUatAPIView(APIView):
                     rc_details=rc_obj,
                     ip_address=ip_address,
                     user_agent=user_agent,
+                    created_by=client.id
                 )
 
                 return Response(
@@ -251,6 +293,7 @@ class RcUatAPIView(APIView):
                     rc_details=None,
                     ip_address=ip_address,
                     user_agent=user_agent,
+                    created_by=client.id
                 )
                 continue
 
@@ -270,6 +313,7 @@ class RcUatAPIView(APIView):
             rc_details=None,
             ip_address=ip_address,
             user_agent=user_agent,
+            created_by=client.id
         )
         return Response({"success": False, "status": 404, "error": "All vendors failed"}, status=404)
 
@@ -290,6 +334,7 @@ class RcUatAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
+                created_by=None,
             )
             return Response({"success": False, "status": 401, "error": "Missing API key"}, status=401)
 
@@ -305,6 +350,11 @@ class RcUatAPIView(APIView):
                 response_payload=None,
                 error_message="Invalid API key",
                 user=None,
+                rc_details=None,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                created_by=None,
+
             )
             return Response({"success": False, "status": 401, "error": "Invalid API key"}, status=401)
         return client
@@ -334,7 +384,7 @@ class RcUatAPIView(APIView):
 
     def _log_request(self, rc_number, vendor, endpoint, status_code, status,
                      request_payload=None, response_payload=None, error_message=None,
-                     user=None, rc_details=None, ip_address=None, user_agent=None):
+                     user=None, rc_details=None, ip_address=None, user_agent=None, created_by=None):
         UatRcRequestLog.objects.create(
             rc_number=rc_number,
             rc_details=rc_details,
@@ -348,4 +398,5 @@ class RcUatAPIView(APIView):
             user=user,
             ip_address=ip_address,
             user_agent=user_agent,
+            created_by=created_by
         )
