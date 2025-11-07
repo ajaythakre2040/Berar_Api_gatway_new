@@ -86,7 +86,6 @@ def call_rc_vendor_api(vendor, request_data):
             "error_message": str(e)
         }
 
-
 def normalize_rc_response(vendor_name, raw_data):
     
     result = raw_data.get("result") or raw_data.get("data") or raw_data
@@ -158,3 +157,46 @@ def save_rc_data(normalized, created_by):
         print(f"[ERROR] Failed saving RCDetails: {e}")
         return None
 
+
+def call_dynamic_vendor_api(url, request_data):
+    headers = {"Content-Type": "application/json"}
+    vendor_name = request_data.get("vendor")
+    header_key_name = request_data.get("header_key_name")
+    api_key = request_data.get("api_key")
+    if vendor_name == "karza":
+        headers["x-karza-key"] = api_key
+    elif vendor_name == "surepass":
+        headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
+    if header_key_name and api_key:
+        headers[header_key_name] = api_key
+    payload = build_rc_request(vendor_name, request_data)
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        try:
+            return response.json()
+        except ValueError:
+            return {
+                "http_error": True,
+                "status_code": response.status_code,
+                "vendor_response": response.text,
+                "error_message": "Invalid JSON response",
+            }
+    except requests.HTTPError as e:
+        try:
+            error_content = response.json()
+        except Exception:
+            error_content = response.text
+        return {
+            "http_error": True,
+            "status_code": response.status_code,
+            "vendor_response": error_content,
+            "error_message": str(e),
+        }
+    except Exception as e:
+        return {
+            "http_error": True,
+            "status_code": None,
+            "vendor_response": None,
+            "error_message": str(e),
+        }
