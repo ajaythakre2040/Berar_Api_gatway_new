@@ -40,8 +40,11 @@ class VendorUatPassportDetailsAPIView(APIView):
         verification_obj=None,
         ip_address=None,
         user_agent=None,
+        created_by=None,
     ):
+        if created_by is None:
 
+            created_by = user.id if user and user.is_authenticated else None
         if not isinstance(status_code, int):
             raise ValueError(f"status_code must be an integer, got {status_code!r}")
 
@@ -59,19 +62,18 @@ class VendorUatPassportDetailsAPIView(APIView):
             passport_verification=verification_obj,
             ip_address=ip_address,
             user_agent=user_agent,
+            created_by=created_by,
         )
 
     def post(self, request):
         url = request.data.get("url")
         file_number = request.data.get("file_number")
-        dob = request.data.get("dob")        
+        dob = request.data.get("dob")
         vendor = request.data.get("vendor", "Unknown Vendor").strip()
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         user = request.user if request.user.is_authenticated else None
 
-        
-        # ✅ Basic Validation
         if not file_number or not dob or file_number.strip() == "":
             missing = []
             if not file_number or file_number.strip() == "":
@@ -79,13 +81,13 @@ class VendorUatPassportDetailsAPIView(APIView):
             if not dob or dob.strip() == "":
                 missing.append("dob")
 
-        response = None  # Important initialization
+        response = None
 
         try:
-            # Call vendor API
+
             response = call_dynamic_vendor_api(url, request.data)
             
-            # ✅ Vendor error response handling
+
             if response and isinstance(response, dict) and response.get("http_error"):
                 error_message = response.get("error_message") or "Vendor API Error"
 
@@ -116,30 +118,36 @@ class VendorUatPassportDetailsAPIView(APIView):
 
             data = response or {}
             normalized = normalize_vendor_response(vendor, data, request.data)
+           
             if not normalized:
                 self._log_passport_request(
-                        file_number=file_number,
-                        dob=dob,
-                        vendor_name=vendor,
-                        endpoint=request.path,
-                        status_code=502,
-                        status="fail",
-                        request_payload=request.data,
-                        response_payload=data,
-                        error_message=error_message,
-                        user=None,
-                        verification_obj=None,
-                        ip_address=ip_address,
-                        user_agent=user_agent,
+                    file_number=file_number,
+                    dob=dob,
+                    vendor_name=vendor,
+                    endpoint=request.path,
+                    status_code=502,
+                    status="fail",
+                    request_payload=request.data,
+                    response_payload=data,
+                    error_message=error_message,
+                    user=None,
+                    verification_obj=None,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
                 )
-                return Response({"success": False, "message": "No valid data returned"}, status=200)
+                return Response(
+                    {"success": False, "message": "No valid data returned"}, status=200
+                )
 
             if not user:
-                return Response({"success": False, "message": "No authenticated user found"}, status=401)
+                return Response(
+                    {"success": False, "message": "No authenticated user found"},
+                    status=401,
+                )
 
-            # ✅ Save data
             with transaction.atomic():
-                pass_obj = save_verification(normalized, created_by_id=user.id, vendor=vendor)
+                pass_obj = save_verification(normalized)
+
                 if not pass_obj or not pass_obj.id:
                     raise ValueError("Failed to save bill data")
 
@@ -162,8 +170,12 @@ class VendorUatPassportDetailsAPIView(APIView):
                 )
 
             return Response(
-                {"success": True, "message": "Data successfully fetched", "data": serializer.data},
-                status=200
+                {
+                    "success": True,
+                    "message": "Data successfully fetched",
+                    "data": serializer.data,
+                },
+                status=200,
             )
 
         except Exception as e:

@@ -26,19 +26,19 @@ class VendorUatRcDetailsAPIView(APIView):
         return request.META.get("REMOTE_ADDR")
 
     def _log_request(
-        self, 
-        rc_number, 
-        vendor, 
-        endpoint, 
-        status_code, 
+        self,
+        rc_number,
+        vendor,
+        endpoint,
+        status_code,
         status,
-        request_payload=None, 
-        response_payload=None, 
+        request_payload=None,
+        response_payload=None,
         error_message=None,
-        user=None, 
-        rc_details=None, 
-        ip_address=None, 
-        user_agent=None
+        user=None,
+        rc_details=None,
+        ip_address=None,
+        user_agent=None,
     ):
 
         if not isinstance(status_code, int):
@@ -69,10 +69,15 @@ class VendorUatRcDetailsAPIView(APIView):
 
         # ✅ Basic Validation
         if not rc_number:
-            return Response({"success": False, "message": "Missing required field: rc_number"}, status=400)
+            return Response(
+                {"success": False, "message": "Missing required field: rc_number"},
+                status=400,
+            )
 
         if not url:
-            return Response({"success": False, "message": "Missing required field: url"}, status=400)
+            return Response(
+                {"success": False, "message": "Missing required field: url"}, status=400
+            )
 
         response = None  # Important initialization
 
@@ -114,7 +119,7 @@ class VendorUatRcDetailsAPIView(APIView):
             if not normalized:
                 self._log_request(
                     rc_number=rc_number,
-                    vendor=vendor.vendor_name,
+                    vendor=vendor,
                     endpoint=request.path,
                     status_code=204,
                     status="fail",
@@ -126,10 +131,15 @@ class VendorUatRcDetailsAPIView(APIView):
                     ip_address=ip_address,
                     user_agent=user_agent,
                 )
-                return Response({"success": False, "message": "No valid data returned"}, status=200)
+                return Response(
+                    {"success": False, "message": "No valid data returned"}, status=200
+                )
 
             if not user:
-                return Response({"success": False, "message": "No authenticated user found"}, status=401)
+                return Response(
+                    {"success": False, "message": "No authenticated user found"},
+                    status=401,
+                )
 
             # ✅ Save data
             with transaction.atomic():
@@ -141,7 +151,7 @@ class VendorUatRcDetailsAPIView(APIView):
 
                 self._log_request(
                     rc_number=rc_number,
-                    vendor=vendor.vendor_name,
+                    vendor=vendor,
                     endpoint=request.path,
                     status_code=200,
                     status="success",
@@ -155,8 +165,12 @@ class VendorUatRcDetailsAPIView(APIView):
                 )
 
             return Response(
-                {"success": True, "message": "Data successfully fetched", "data": serializer.data},
-                status=200
+                {
+                    "success": True,
+                    "message": "Data successfully fetched",
+                    "data": serializer.data,
+                },
+                status=200,
             )
 
         except Exception as e:
@@ -164,7 +178,7 @@ class VendorUatRcDetailsAPIView(APIView):
 
             self._log_request(
                 rc_number=rc_number,
-                vendor=vendor.vendor_name,
+                vendor=vendor,
                 endpoint=request.path,
                 status_code=500,
                 status="fail",
