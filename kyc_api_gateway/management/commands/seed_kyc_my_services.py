@@ -134,9 +134,9 @@ class Command(BaseCommand):
                 "prod_url": "http://127.0.0.1:8000/kyc_api_gateway/pro_passport_details/"
             },
             {
-                "name": "ITR",
-                "uat_url": "http://127.0.0.1:8000/kyc_api_gateway/uat_itr_details/",
-                "prod_url": "http://127.0.0.1:8000/kyc_api_gateway/pro_itr_details/"
+                "name": "ADDRESS",
+                "uat_url": "http://127.0.0.1:8000/kyc_api_gateway/uat_address_details/",
+                "prod_url": "http://127.0.0.1:8000/kyc_api_gateway/pro_address_details/"
             },
         ]
 
