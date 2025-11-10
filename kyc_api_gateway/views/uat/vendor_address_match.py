@@ -3,22 +3,40 @@ from django.utils import timezone
 from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from kyc_api_gateway.models.uat_bill_details import UatElectricityBill
-from kyc_api_gateway.serializers.uat_bill_details_serializer import (
-    UatElectricityBillSerializer,
+from kyc_api_gateway.models.uat_address_details import UatAddressMatch
+from rest_framework.permissions import IsAuthenticated
+from auth_system.permissions.token_valid import IsTokenValid
+from kyc_api_gateway.serializers.uat_address_match_serializer import (
+    UatAddressMatchSerializer,
 )
-from kyc_api_gateway.services.uat.bill_handler import (
+from kyc_api_gateway.services.uat.address_handler import (
     call_dynamic_vendor_api,
-    save_bill_data,
+    save_address_match,
     normalize_vendor_response,
 )
 from constant import KYC_MY_SERVICES
-from kyc_api_gateway.models.uat_bill_request_log import UatBillRequestLog
+from kyc_api_gateway.models.uat_address_log import UatAddressMatchRequestLog
+import re
 from kyc_api_gateway.utils.sanitizer import sanitize_input
 
 
-class VendorUatBillDetailsAPIView(APIView):
-    permission_classes = []
+class VendorUatAddressDetailsAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsTokenValid]
+
+    # @staticmethod
+    # def sanitize_input(value):
+    #     if not value:
+    #         return value
+    #     value = value.strip()
+
+    #     clean_value = re.sub(r"<.*?>", "", value)
+
+    #     if re.search(
+    #         r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE
+    #     ):
+    #         raise ValueError("Invalid characters detected in input.")
+
+    #     return clean_value
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -28,8 +46,8 @@ class VendorUatBillDetailsAPIView(APIView):
 
     def _log_request(
         self,
-        customer_id,
-        service_provider,
+        address1,
+        address2,
         vendor_name,
         endpoint,
         status_code,
@@ -38,16 +56,16 @@ class VendorUatBillDetailsAPIView(APIView):
         response_payload=None,
         error_message=None,
         user=None,
-        bill_details=None,
+        match_obj=None,
         ip_address=None,
         user_agent=None,
     ):
         if not isinstance(status_code, int):
             raise ValueError(f"status_code must be an integer, got {status_code!r}")
-        UatBillRequestLog.objects.create(
-            customer_id=customer_id,
-            operator_code=service_provider,
-            bill_details=bill_details,
+
+        UatAddressMatchRequestLog.objects.create(
+            address1=address1,
+            address2=address2,
             vendor=vendor_name,
             endpoint=endpoint,
             status_code=status_code,
@@ -55,79 +73,99 @@ class VendorUatBillDetailsAPIView(APIView):
             request_payload=request_payload,
             response_payload=response_payload,
             error_message=error_message,
-            user=user,
+            user=user if user and getattr(user, "is_authenticated", False) else None,
+            address_match=match_obj,
             ip_address=ip_address,
             user_agent=user_agent,
         )
 
     def post(self, request):
-        url = sanitize_input(request.data.get("url"))
-        consumer_id = (sanitize_input(request.data.get("consumer_id")) or "").strip().upper()  # sanitize and then process
-        service_provider = sanitize_input(request.data.get("service_provider"))
-        vendor = sanitize_input(request.data.get("vendor", "Unknown Vendor")).strip() 
+        url = request.data.get("url")
+        address1 = sanitize_input(request.data.get("address1"))
+        address2 = sanitize_input(request.data.get("address2"))
+        vendor = request.data.get("vendor", "Unknown Vendor").strip()
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         user = request.user if request.user.is_authenticated else None
 
-        if not consumer_id:
-            return Response(
-                {"success": False, "message": "Missing required field: consumer_id"},
-                status=400,
-            )
+        if not address1 or address1.strip() == "":
+            missing = []
+            if not address1 or address1.strip() == "":
+                missing.append("address1")
+
+        if not address2 or address2.strip() == "":
+            missing = []
+            if not address2 or address2.strip() == "":
+                missing.append("address2")
+
         if not url:
             return Response(
                 {"success": False, "message": "Missing required field: url"}, status=400
             )
+
         response = None
+
         try:
 
             response = call_dynamic_vendor_api(url, request.data)
-
             if response and isinstance(response, dict) and response.get("http_error"):
+
                 error_message = response.get("error_message") or "Vendor API Error"
+                vendor_message = response.get("vendor_response", {}).get(
+                    "message", "Unknown error"
+                )
+                vendor_status_code = response.get("vendor_response", {}).get(
+                    "status_code", 400
+                )
+
                 self._log_request(
-                    customer_id=consumer_id,
-                    service_provider=service_provider,
+                    address1=None,
+                    address2=None,
                     vendor_name=vendor,
                     endpoint=request.path,
-                    status_code=response.get("status_code") or 400,
+                    status_code=vendor_status_code,
                     status="fail",
                     request_payload=request.data,
-                    response_payload=response.get("vendor_response"),
+                    response_payload=None,
                     error_message=error_message,
-                    user=user,
-                    ip_address=ip_address,
-                    user_agent=user_agent,
+                    user=None,
+                    match_obj=None,
+                    ip_address=None,
+                    user_agent=None,
                 )
+
                 return Response(
                     {
                         "success": False,
-                        "status": response.get("status_code"),
-                        "message": error_message,
-                        "vendor_response": response.get("vendor_response"),
+                        "status_code": vendor_status_code,
+                        "message": vendor_message,
+                        "error_details": error_message,
                     },
-                    status=response.get("status_code") or 400,
+                    status=vendor_status_code,
                 )
+
             data = response or {}
-            normalized = normalize_vendor_response(vendor, data)
+            normalized = normalize_vendor_response(vendor, data, request.data)
             if not normalized:
                 self._log_request(
-                    customer_id=consumer_id,
-                    service_provider=service_provider,
+                    address1=address1,
+                    address2=address2,
                     vendor_name=vendor,
                     endpoint=request.path,
-                    status_code=204,
+                    status_code=502,
                     status="fail",
                     request_payload=request.data,
                     response_payload=data,
-                    error_message="No valid data returned",
+                    error_message=error_message,
                     user=user,
+                    match_obj=None,
                     ip_address=ip_address,
                     user_agent=user_agent,
                 )
                 return Response(
                     {"success": False, "message": "No valid data returned"}, status=200
                 )
+
             if not user:
                 return Response(
                     {"success": False, "message": "No authenticated user found"},
@@ -135,24 +173,28 @@ class VendorUatBillDetailsAPIView(APIView):
                 )
 
             with transaction.atomic():
-                bill_obj = save_bill_data(normalized, created_by=user.id)
-                if not bill_obj or not bill_obj.id:
+                address_obj = save_address_match(normalized, created_by=user.id)
+                if not address_obj or not address_obj.id:
                     raise ValueError("Failed to save bill data")
-                serializer = UatElectricityBillSerializer(bill_obj)
+
+                serializer = UatAddressMatchSerializer(address_obj)
+
                 self._log_request(
-                    customer_id=consumer_id,
-                    service_provider=service_provider,
+                    address1=address1,
+                    address2=address2,
                     vendor_name=vendor,
                     endpoint=request.path,
                     status_code=200,
                     status="success",
                     request_payload=request.data,
                     response_payload=serializer.data,
+                    error_message=None,
                     user=user,
-                    bill_details=bill_obj,
+                    match_obj=address_obj,
                     ip_address=ip_address,
                     user_agent=user_agent,
                 )
+
             return Response(
                 {
                     "success": True,
@@ -161,20 +203,24 @@ class VendorUatBillDetailsAPIView(APIView):
                 },
                 status=200,
             )
+
         except Exception as e:
             error_message = str(e)
+
             self._log_request(
-                customer_id=consumer_id,
-                service_provider=service_provider,
+                address1=address1,
+                address2=address2,
                 vendor_name=vendor,
                 endpoint=request.path,
                 status_code=500,
                 status="fail",
                 request_payload=request.data,
-                response_payload=response if response else None,
+                response_payload=None,
                 error_message=error_message,
                 user=user,
+                match_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
+
             return Response({"success": False, "message": error_message}, status=500)
