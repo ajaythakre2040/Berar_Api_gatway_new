@@ -10,6 +10,9 @@ from kyc_api_gateway.views.client_management_view import (
     ClientManagementDetail,
     #  ClientAllCount,
 )
+from kyc_api_gateway.views.uat.vendor_address_match import (
+    VendorUatAddressDetailsAPIView,
+)
 from kyc_api_gateway.views.uat.vendor_bill_details_view import (
     VendorUatBillDetailsAPIView,
 )
@@ -191,6 +194,11 @@ urlpatterns = [
         "uat_vendor_passport_details/",
         VendorUatPassportDetailsAPIView.as_view(),
         name="vendor_passport_details",
+    ),
+    path(
+        "uat_vendor_address_details/",
+        VendorUatAddressDetailsAPIView.as_view(),
+        name="vendor_address_details",
     ),
     # production
     path(
