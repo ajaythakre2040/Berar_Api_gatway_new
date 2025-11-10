@@ -39,7 +39,10 @@ class VendorUatRcDetailsAPIView(APIView):
         rc_details=None,
         ip_address=None,
         user_agent=None,
+        # created_by=None,
     ):
+        # if created_by is None:
+        #     created_by = user.id if user and user.is_authenticated else None
 
         if not isinstance(status_code, int):
             raise ValueError(f"status_code must be an integer, got {status_code!r}")
@@ -57,6 +60,7 @@ class VendorUatRcDetailsAPIView(APIView):
             user=user,
             ip_address=ip_address,
             user_agent=user_agent,
+            # created_by=created_by,
         )
 
     def post(self, request):
@@ -91,7 +95,7 @@ class VendorUatRcDetailsAPIView(APIView):
 
                 self._log_request(
                     rc_number=None,
-                    vendor=None,
+                    vendor=vendor,
                     endpoint=request.path,
                     status_code=400,
                     status="fail",

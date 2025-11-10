@@ -40,13 +40,13 @@ class VendorUatPassportDetailsAPIView(APIView):
         verification_obj=None,
         ip_address=None,
         user_agent=None,
-        created_by=None,
+        # created_by=None,
     ):
-        if created_by is None:
+        # if created_by is None:
 
-            created_by = user.id if user and user.is_authenticated else None
-        if not isinstance(status_code, int):
-            raise ValueError(f"status_code must be an integer, got {status_code!r}")
+        #     created_by = user.id if user and user.is_authenticated else None
+        # if not isinstance(status_code, int):
+        #     raise ValueError(f"status_code must be an integer, got {status_code!r}")
 
         UatPassportRequestLog.objects.create(
             file_number=file_number,
@@ -62,7 +62,7 @@ class VendorUatPassportDetailsAPIView(APIView):
             passport_verification=verification_obj,
             ip_address=ip_address,
             user_agent=user_agent,
-            created_by=created_by,
+            # created_by=created_by,
         )
 
     def post(self, request):
