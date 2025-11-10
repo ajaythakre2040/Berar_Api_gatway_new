@@ -65,8 +65,12 @@ from kyc_api_gateway.views.uat.driving_license_details_view import (
 )
 from kyc_api_gateway.views.uat.passport_view import UatPassportView
 from kyc_api_gateway.views.uat.address_details_view import AddressMatchUatAPIView
-from kyc_api_gateway.views.uat.reports import ReportAPIView
-from kyc_api_gateway.views.uat.reports import KycReportDownloadAPIView
+from kyc_api_gateway.views.uat.admin_reports import AdminReportAPIView
+from kyc_api_gateway.views.uat.admin_reports import AdminReportDownloadAPIView
+
+from kyc_api_gateway.views.uat.client_reports import ClientReportAPIView
+from kyc_api_gateway.views.uat.client_reports import ClientReportDownloadAPIView
+
 #production
 from kyc_api_gateway.views.pro.bill_details_view import ProBillDetailsAPIView   
 from kyc_api_gateway.views.pro.pan_details_view import ProPanDetailsAPIView   
@@ -142,8 +146,11 @@ urlpatterns = [
     path("uat_passport_details/", UatPassportView.as_view(), name="uat_passport_details"),
     path("uat_address_details/", AddressMatchUatAPIView.as_view(), name="uat_address_details"),
 
-    path("uat_report/", ReportAPIView.as_view(), name="uat_report"),
-    path("uat_report_download/", KycReportDownloadAPIView.as_view(), name="uat_report_download"),
+    path("uat_admin_report/", AdminReportAPIView.as_view(), name="uat_admin_report"),
+    path("uat_admin_report_download/", AdminReportDownloadAPIView.as_view(), name="uat_admin_report_download"),
+
+    path("uat_client_report/", ClientReportAPIView.as_view(), name="uat_client_report"),
+    path("uat_client_report_download/", ClientReportDownloadAPIView.as_view(), name="uat_client_report_download"),
 
     #production
     path("prod_bill_details/", ProBillDetailsAPIView.as_view(), name="prod_bill_details"),
