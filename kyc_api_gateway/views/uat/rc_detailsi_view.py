@@ -150,7 +150,7 @@ class RcUatAPIView(APIView):
             serializer = UatRcDetailsSerializer(cached)
             self._log_request(
                 rc_number=rc_number,
-                vendor="CACHE",
+                vendor="cached",
                 endpoint=endpoint,
                 status_code=200,
                 status="success",

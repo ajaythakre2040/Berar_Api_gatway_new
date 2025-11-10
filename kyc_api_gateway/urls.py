@@ -45,7 +45,8 @@ from kyc_api_gateway.views.uat.rc_detailsi_view import RcUatAPIView
 from kyc_api_gateway.views.uat.driving_license_details_view import UatDrivingLicenseAPIView
 from kyc_api_gateway.views.uat.passport_view import UatPassportView
 from kyc_api_gateway.views.uat.address_details_view import AddressMatchUatAPIView
-
+from kyc_api_gateway.views.uat.reports import ReportAPIView
+from kyc_api_gateway.views.uat.reports import KycReportDownloadAPIView
 #production
 from kyc_api_gateway.views.pro.bill_details_view import ProBillDetailsAPIView   
 from kyc_api_gateway.views.pro.pan_details_view import ProPanDetailsAPIView   
@@ -91,7 +92,9 @@ urlpatterns = [
     path("uat_passport_details/", UatPassportView.as_view(), name="uat_passport_details"),
     path("uat_address_details/", AddressMatchUatAPIView.as_view(), name="uat_address_details"),
 
-    
+    path("uat_report/", ReportAPIView.as_view(), name="uat_report"),
+    path("uat_report_download/", KycReportDownloadAPIView.as_view(), name="uat_report_download"),
+
     #production
     path("prod_bill_details/", ProBillDetailsAPIView.as_view(), name="prod_bill_details"),
     path("prod_pan_details/", ProPanDetailsAPIView.as_view(), name="prod_pan_details"),

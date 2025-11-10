@@ -56,8 +56,6 @@ class AddressMatchUatAPIView(APIView):
                 "error": str(e)
             }, status=400)
 
-        
-
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
 
@@ -67,7 +65,6 @@ class AddressMatchUatAPIView(APIView):
             if not address1 or address1.strip() == "":
                 missing.append("address1")
         
-            
             error_msg = f"Missing required fields: {', '.join(missing)}"
             self._log_request(
                 address1=address1,

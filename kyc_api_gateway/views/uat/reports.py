@@ -1,14 +1,16 @@
 # from rest_framework.views import APIView
 # from rest_framework.response import Response
 # from rest_framework.permissions import IsAuthenticated
-# from django.db.models import Q
 # from django.utils.dateparse import parse_date
 # from django.http import HttpResponse
 # import pandas as pd
-# from datetime import date
 
 # from auth_system.permissions.token_valid import IsTokenValid
 # from auth_system.utils.pagination import CustomPagination
+
+# from rest_framework import status
+# from constant import KYC_MY_SERVICES
+
 
 # from kyc_api_gateway.models import (
 #     KycMyServices,
@@ -23,6 +25,28 @@
 #     UatPassportRequestLog,
 #     UatBillRequestLog,
 # )
+
+# from kyc_api_gateway.models import (
+#     UatPanRequestLog,
+#     UatBillRequestLog,
+#     UatDrivingLicenseRequestLog,
+#     UatNameMatchRequestLog,
+#     UatPassportRequestLog,
+#     UatRcRequestLog,
+#     UatVoterRequestLog,
+#     UatAddressMatchRequestLog
+# )
+
+# from kyc_api_gateway.serializers.uat_pan_request_log_serializer import UatPanRequestLogSerializer
+# from kyc_api_gateway.serializers.uat_address_log_serializer import UatAddressMatchRequestLogSerializer
+# from kyc_api_gateway.serializers.uat_bill_request_log_serializer import UatBillRequestLogSerializer
+# from kyc_api_gateway.serializers.uat_driving_license_log_serializer import UatDrivingLicenseRequestLogSerializer
+# from kyc_api_gateway.serializers.uat_name_request_match_log_serializer import UatNameMatchRequestLogSerializer
+
+# from kyc_api_gateway.serializers.uat_passport_log_serializer import UatPassportRequestLogSerializer
+# from kyc_api_gateway.serializers.uat_rc_detail_log_serializer import UatRcRequestLogSerializer
+# from kyc_api_gateway.serializers.uat_voter_details_log_serializer import UatVoterRequestLogSerializer
+
 # SERVICE_LOG_MAPPING = {
 #     "PAN": UatPanRequestLog,
 #     "BILL": UatBillRequestLog,
@@ -35,272 +59,325 @@
 # }
 
 
-# class KycReportAPIView(APIView):
-#     permission_classes = [IsAuthenticated, IsTokenValid]
+# class ReportAPIView(APIView):
+#     authentication_classes = []
+#     permission_classes = []
 
 #     def post(self, request):
-#         data = request.data
-#         filters = Q()
+#         try:
+#             myservice_id = request.data.get("myservice_id")
+#             vendor_name = request.data.get("vendor_name")
+#             status_code = request.data.get("status_code")
+#             from_date = request.data.get("from_date")
+#             to_date = request.data.get("to_date")
+#             client_id = request.data.get("client_id")
 
-#         client_id = data.get("client_id")
-#         vendor_id = data.get("vendor_id")
-#         myservice_id = data.get("myservice_id")
-#         status_val = data.get("status")
-#         from_date = data.get("from_date")
-#         to_date = data.get("to_date")
-#         today_only = data.get("today", False)
+#             if not myservice_id:
+#                 return Response({
+#                     "success": False,
+#                     "message": "myservice_id is required"
+#                 }, status=status.HTTP_400_BAD_REQUEST)
 
-#         # Service validation
-#         my_service = KycMyServices.objects.filter(id=myservice_id).first()
-#         if not my_service:
-#             return Response({"success": False, "message": "Invalid service"}, status=400)
+#             # ✅ Base queryset selection
+#             if myservice_id == KYC_MY_SERVICES.get("PAN"):
+#                 queryset = UatPanRequestLog.objects.all()
+#                 serializer_class = UatPanRequestLogSerializer
+#                 service_name = "PAN"
 
-#         log_model = SERVICE_LOG_MAPPING.get(my_service.name.upper())
-#         if not log_model:
-#             return Response({"success": False, "message": f"No log table mapped for {my_service.name}"}, status=400)
+#             elif myservice_id == KYC_MY_SERVICES.get("BILL"):
+#                 queryset = UatBillRequestLog.objects.all()
+#                 serializer_class = UatBillRequestLogSerializer
+#                 service_name = "BILL"
 
-#         # ---- Filters ----
-#         if today_only:
-#             filters &= Q(created_at__date=date.today())
+#             elif myservice_id == KYC_MY_SERVICES.get("VOTER"):
+#                 queryset = UatVoterRequestLog.objects.all()
+#                 serializer_class = UatVoterRequestLogSerializer
+#                 service_name = "VOTER"
 
-#         if from_date:
-#             from_date = parse_date(from_date)
-#             if not from_date:
-#                 return Response({"success": False, "message": "Invalid 'from_date' format"}, status=400)
-#             if to_date:
-#                 to_date = parse_date(to_date)
-#                 if not to_date:
-#                     return Response({"success": False, "message": "Invalid 'to_date' format"}, status=400)
-#                 filters &= Q(created_at__date__range=[from_date, to_date])
+#             elif myservice_id == KYC_MY_SERVICES.get("NAME"):
+#                 queryset = UatNameMatchRequestLog.objects.all()
+#                 serializer_class = UatNameMatchRequestLogSerializer
+#                 service_name = "NAME"
+
+#             elif myservice_id == KYC_MY_SERVICES.get("RC"):
+#                 queryset = UatRcRequestLog.objects.all()
+#                 serializer_class = UatRcRequestLogSerializer
+#                 service_name = "RC"
+
+#             elif myservice_id == KYC_MY_SERVICES.get("DRIVING"):
+#                 queryset = UatDrivingLicenseRequestLog.objects.all()
+#                 serializer_class = UatDrivingLicenseRequestLogSerializer
+#                 service_name = "DRIVING"
+
+#             elif myservice_id == KYC_MY_SERVICES.get("PASSPORT"):
+#                 queryset = UatPassportRequestLog.objects.all()
+#                 serializer_class = UatPassportRequestLogSerializer
+#                 service_name = "PASSPORT"
+
+#             elif myservice_id == KYC_MY_SERVICES.get("ADDRESS"):
+#                 queryset = UatAddressMatchRequestLog.objects.all()
+#                 serializer_class = UatAddressMatchRequestLogSerializer
+#                 service_name = "ADDRESS"
+
 #             else:
-#                 filters &= Q(created_at__date=from_date)
-#         elif to_date:
-#             to_date = parse_date(to_date)
-#             if not to_date:
-#                 return Response({"success": False, "message": "Invalid 'to_date' format"}, status=400)
-#             filters &= Q(created_at__date=to_date)
+#                 return Response({
+#                     "success": False,
+#                     "message": "Unsupported myservice_id"
+#                 }, status=status.HTTP_400_BAD_REQUEST)
 
-#         if client_id:
-#             filters &= Q(client_id=client_id)
-#         if vendor_id:
-#             filters &= Q(vendor_id=vendor_id)
-#         if status_val:
-#             filters &= Q(status__iexact=status_val)
+#             if vendor_name:
+#                 queryset = queryset.filter(vendor__iexact=vendor_name.strip())
 
-#         logs = log_model.objects.filter(filters).select_related("client", "vendor").order_by("-id")
+#             if status_code:
+#                 queryset = queryset.filter(status_code=status_code)
 
-#         # Pagination
-#         paginator = CustomPagination()
-#         page_data = paginator.paginate_queryset(logs, request)
+#             if client_id:
+#                 queryset = queryset.filter(created_by=client_id)
 
-#         serialized_data = []
-#         for log in page_data:
-#             # Fetch priority if exists
-#             priority = KycVendorPriority.objects.filter(
-#                 client=log.client, vendor=log.vendor, my_service=my_service
-#             ).first()
-#             serialized_data.append({
-#                 "Client Name": log.client.company_name if log.client else "",
-#                 "Client Contact": log.client.phone if log.client else "",
-#                 "Client Email": log.client.email if log.client else "",
-#                 "Business Type": log.client.business_type if log.client else "",
-#                 "Registration Number": log.client.registration_number if log.client else "",
-#                 "Industry": log.client.industry if log.client else "",
-#                 "Vendor Name": log.vendor.vendor_name if log.vendor else "",
-#                 "Service": my_service.name,
-#                 "Status": getattr(log, "status", ""),
-#                 "Request ID": getattr(log, "request_id", ""),
-#                 "Created At": log.created_at.strftime("%Y-%m-%d %H:%M:%S") if log.created_at else "",
-#                 "Priority": priority.priority if priority else "",
-#             })
 
-#         return paginator.get_custom_paginated_response(
-#             data=serialized_data,
-#             extra_fields={"success": True, "message": "KYC Report fetched successfully"},
-#         )
+#             if from_date or to_date:
+#                 from_date_parsed = parse_date(from_date) if from_date else None
+#                 to_date_parsed = parse_date(to_date) if to_date else None
 
+#                 if from_date_parsed and to_date_parsed:
+#                     if from_date_parsed > to_date_parsed:
+#                         from_date_parsed, to_date_parsed = to_date_parsed, from_date_parsed
+#                     queryset = queryset.filter(created_at__date__range=[from_date_parsed, to_date_parsed])
+#                 elif from_date_parsed:
+#                     queryset = queryset.filter(created_at__date__gte=from_date_parsed)
+#                 elif to_date_parsed:
+#                     queryset = queryset.filter(created_at__date__lte=to_date_parsed)
+
+#             queryset = queryset.order_by("-created_at")
+#             serializer = serializer_class(queryset, many=True)
+
+#             data = serializer.data
+#             # ✅ Add client_name based on client_id
+#             for item in data:
+#                 client_id = item.get("created_by")
+#                 if client_id:
+#                     client_obj = ClientManagement.objects.filter(id=client_id).first()
+#                     item["client_name"] = client_obj.name if client_obj else None
+#                 else:
+#                     item["client_name"] = None
+
+#             return Response({
+#                 "success": True,
+#                 "service": service_name,
+#                 "count": queryset.count(),
+#                 "data": data
+#             }, status=status.HTTP_200_OK)
+
+#         except Exception as e:
+#             return Response({
+#                 "success": False,
+#                 "error": str(e)
+#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        
 
 # class KycReportDownloadAPIView(APIView):
 #     permission_classes = [IsAuthenticated, IsTokenValid]
 
 #     def post(self, request):
-#         data = request.data
-#         filters = Q()
+#         try:
+#             myservice_id = request.data.get("myservice_id")
+#             vendor_name = request.data.get("vendor_name")
+#             status_code = request.data.get("status_code")
+#             from_date = request.data.get("from_date")
+#             to_date = request.data.get("to_date")
+#             client_id = request.data.get("client_id")
 
-#         client_id = data.get("client_id")
-#         vendor_id = data.get("vendor_id")
-#         myservice_id = data.get("myservice_id")
-#         status_val = data.get("status")
-#         from_date = data.get("from_date")
-#         to_date = data.get("to_date")
-#         today_only = data.get("today", False)
+#             if not myservice_id:
+#                 return Response({
+#                     "success": False,
+#                     "message": "myservice_id is required"
+#                 }, status=status.HTTP_400_BAD_REQUEST)
 
-#         my_service = KycMyServices.objects.filter(id=myservice_id).first()
-#         if not my_service:
-#             return Response({"success": False, "message": "Invalid service"}, status=400)
+#             # ✅ Map service id → model
+#             service_map = {
+#                 KYC_MY_SERVICES.get("PAN"): (UatPanRequestLog, "PAN_Report.csv"),
+#                 KYC_MY_SERVICES.get("BILL"): (UatBillRequestLog, "BILL_Report.csv"),
+#                 KYC_MY_SERVICES.get("VOTER"): (UatVoterRequestLog, "VOTER_Report.csv"),
+#                 KYC_MY_SERVICES.get("NAME"): (UatNameMatchRequestLog, "NAME_Report.csv"),
+#                 KYC_MY_SERVICES.get("RC"): (UatRcRequestLog, "RC_Report.csv"),
+#                 KYC_MY_SERVICES.get("DRIVING"): (UatDrivingLicenseRequestLog, "DRIVING_Report.csv"),
+#                 KYC_MY_SERVICES.get("PASSPORT"): (UatPassportRequestLog, "PASSPORT_Report.csv"),
+#                 KYC_MY_SERVICES.get("ADDRESS"): (UatAddressMatchRequestLog, "ADDRESS_Report.csv"),
+#             }
 
-#         log_model = SERVICE_LOG_MAPPING.get(my_service.name.upper())
-#         if not log_model:
-#             return Response({"success": False, "message": f"No log table mapped for {my_service.name}"}, status=400)
+#             model_info = service_map.get(myservice_id)
+#             if not model_info:
+#                 return Response({
+#                     "success": False,
+#                     "message": "Unsupported myservice_id"
+#                 }, status=status.HTTP_400_BAD_REQUEST)
 
-#         if today_only:
-#             filters &= Q(created_at__date=date.today())
+#             model, filename = model_info
+#             queryset = model.objects.all().order_by("-created_at")
 
-#         if from_date:
-#             from_date = parse_date(from_date)
-#             if not from_date:
-#                 return Response({"success": False, "message": "Invalid 'from_date' format"}, status=400)
-#             if to_date:
-#                 to_date = parse_date(to_date)
-#                 if not to_date:
-#                     return Response({"success": False, "message": "Invalid 'to_date' format"}, status=400)
-#                 filters &= Q(created_at__date__range=[from_date, to_date])
-#             else:
-#                 filters &= Q(created_at__date=from_date)
-#         elif to_date:
-#             to_date = parse_date(to_date)
-#             if not to_date:
-#                 return Response({"success": False, "message": "Invalid 'to_date' format"}, status=400)
-#             filters &= Q(created_at__date=to_date)
+#             # ✅ Apply filters
+#             if vendor_name:
+#                 # Case-insensitive + trim-safe
+#                 queryset = queryset.filter(vendor__iexact=vendor_name.strip())
 
-#         if client_id:
-#             filters &= Q(client_id=client_id)
-#         if vendor_id:
-#             filters &= Q(vendor_id=vendor_id)
-#         if status_val:
-#             filters &= Q(status__iexact=status_val)
+#             if status_code:
+#                 queryset = queryset.filter(status_code=status_code)
 
-#         logs = log_model.objects.filter(filters).select_related("client", "vendor").order_by("-id")
+#             if client_id:
+#                 queryset = queryset.filter(created_by=client_id)
 
-#         rows = []
-#         for log in logs:
-#             priority = KycVendorPriority.objects.filter(
-#                 client=log.client, vendor=log.vendor, my_service=my_service
-#             ).first()
-#             rows.append({
-#                 "Client Name": log.client.company_name if log.client else "",
-#                 "Client Contact": log.client.phone if log.client else "",
-#                 "Client Email": log.client.email if log.client else "",
-#                 "Business Type": log.client.business_type if log.client else "",
-#                 "Registration Number": log.client.registration_number if log.client else "",
-#                 "Industry": log.client.industry if log.client else "",
-#                 "Vendor Name": log.vendor.vendor_name if log.vendor else "",
-#                 "Service": my_service.name,
-#                 "Status": getattr(log, "status", ""),
-#                 "Request ID": getattr(log, "request_id", ""),
-#                 "Created At": log.created_at.strftime("%Y-%m-%d %H:%M:%S") if log.created_at else "",
-#                 "Priority": priority.priority if priority else "",
-#             })
+#             # ✅ Date filters
+#             if from_date or to_date:
+#                 from_date_parsed = parse_date(from_date) if from_date else None
+#                 to_date_parsed = parse_date(to_date) if to_date else None
 
-#         df = pd.DataFrame(rows)
-#         response = HttpResponse(content_type='application/vnd.ms-excel')
-#         response['Content-Disposition'] = f'attachment; filename="{my_service.name}_kyc_report.xlsx"'
-#         df.to_excel(response, index=False)
-#         return response
+#                 if from_date_parsed and to_date_parsed:
+#                     if from_date_parsed > to_date_parsed:
+#                         from_date_parsed, to_date_parsed = to_date_parsed, from_date_parsed
+#                     queryset = queryset.filter(created_at__date__range=[from_date_parsed, to_date_parsed])
+#                 elif from_date_parsed:
+#                     queryset = queryset.filter(created_at__date__gte=from_date_parsed)
+#                 elif to_date_parsed:
+#                     queryset = queryset.filter(created_at__date__lte=to_date_parsed)
+
+#             if not queryset.exists():
+#                 return Response({
+#                     "success": False,
+#                     "message": "No records found for this service."
+#                 }, status=status.HTTP_404_NOT_FOUND)
+
+          
+#             df = pd.DataFrame(list(queryset.values()))
+
+#             if "created_by" in df.columns:
+#                 client_map = {
+#                     c.id: c.name for c in ClientManagement.objects.filter(
+#                         id__in=df["created_by"].dropna().unique()
+#                     )
+#                 }
+#                 df["client_name"] = df["created_by"].map(client_map)
+
+#             # ✅ Add service_name column (determine type by service ID)
+#             service_name_map = {
+#                 KYC_MY_SERVICES.get("PAN"): "PAN",
+#                 KYC_MY_SERVICES.get("BILL"): "BILL",
+#                 KYC_MY_SERVICES.get("VOTER"): "VOTER",
+#                 KYC_MY_SERVICES.get("NAME"): "NAME MATCH",
+#                 KYC_MY_SERVICES.get("RC"): "RC",
+#                 KYC_MY_SERVICES.get("DRIVING"): "DRIVING",
+#                 KYC_MY_SERVICES.get("PASSPORT"): "PASSPORT",
+#                 KYC_MY_SERVICES.get("ADDRESS"): "ADDRESS",
+#             }
+#             df["service_name"] = service_name_map.get(myservice_id, "UNKNOWN")
+
+#             # ✅ Reorder columns → move service_name to the front
+#             cols = ["service_name"] + [col for col in df.columns if col != "service_name"]
+#             df = df[cols]
+
+#             # ✅ Drop unnecessary columns
+#             drop_columns = ["id", "deleted_at", "updated_at", "created_by", "created_at", "pan_details_id", "user_id"]
+#             df.drop(columns=[c for c in drop_columns if c in df.columns], inplace=True, errors="ignore")
+
+#             # ✅ Create CSV response
+#             response = HttpResponse(content_type="xlsx/csv")
+#             response["Content-Disposition"] = f'attachment; filename="{filename}"'
+#             df.to_csv(path_or_buf=response, index=False)
+#             return response
+
+#         except Exception as e:
+#             return Response({
+#                 "success": False,
+#                 "error": str(e)
+#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# kyc_api_gateway/views/report_view.py
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.http import HttpResponse
+import pandas as pd
+
+from kyc_api_gateway.utils.reports import get_filtered_queryset
+from kyc_api_gateway.models import ClientManagement
+
+# ✅ Import all serializers (if you want dynamic handling)
+from kyc_api_gateway.serializers.uat_pan_request_log_serializer import UatPanRequestLogSerializer
+from kyc_api_gateway.serializers.uat_bill_request_log_serializer import UatBillRequestLogSerializer
+from kyc_api_gateway.serializers.uat_voter_details_log_serializer import UatVoterRequestLogSerializer
+from kyc_api_gateway.serializers.uat_name_request_match_log_serializer import UatNameMatchRequestLogSerializer
+from kyc_api_gateway.serializers.uat_rc_detail_log_serializer import UatRcRequestLogSerializer
+from kyc_api_gateway.serializers.uat_driving_license_log_serializer import UatDrivingLicenseRequestLogSerializer
+from kyc_api_gateway.serializers.uat_passport_log_serializer import UatPassportRequestLogSerializer
+from kyc_api_gateway.serializers.uat_address_log_serializer import UatAddressMatchRequestLogSerializer
 
 
-    # from rest_framework.views import APIView
-    # from rest_framework.response import Response
-    # from rest_framework.permissions import IsAuthenticated
-    # from django.db.models import Q
-    # from django.utils.dateparse import parse_date
-    # from django.http import HttpResponse
-    # import pandas as pd
-    # from datetime import date
+# ✅ Mapping for dynamic serializer use
+SERIALIZER_MAP = {
+    "PAN": UatPanRequestLogSerializer,
+    "BILL": UatBillRequestLogSerializer,
+    "VOTER": UatVoterRequestLogSerializer,
+    "NAME": UatNameMatchRequestLogSerializer,
+    "RC": UatRcRequestLogSerializer,
+    "DRIVING": UatDrivingLicenseRequestLogSerializer,
+    "PASSPORT": UatPassportRequestLogSerializer,
+    "ADDRESS": UatAddressMatchRequestLogSerializer,
+}
 
-    # from auth_system.permissions.token_valid import IsTokenValid
 
-    # from kyc_api_gateway.models import (
-    # KycMyServices,
-    # VendorManagement,
-    # ClientManagement,
-    # UatNameMatchRequestLog,
-    # UatPanRequestLog,
-    # UatRcRequestLog,
-    # UatAddressMatchRequestLog,
-    # UatDrivingLicenseRequestLog,
-    # UatPassportRequestLog,
-    # UatBillRequestLog,
-    # )
+class ReportAPIView(APIView):
+    def post(self, request):
+        queryset, service_name, error = get_filtered_queryset(request.data)
+        if error:
+            return Response({"success": False, "message": error}, status=status.HTTP_400_BAD_REQUEST)
 
-    # # Map service name to log table model
+        if not queryset.exists():
+            return Response({"success": False, "message": "No records found."}, status=status.HTTP_404_NOT_FOUND)
 
-    # SERVICE_LOG_MAPPING = {
-    # "PAN": UatPanRequestLog,
-    # "BILL": UatBillRequestLog,
-    # "VOTER": UatDrivingLicenseRequestLog,
-    # "NAME": UatNameMatchRequestLog,
-    # "RC": UatRcRequestLog,
-    # "DRIVING": UatDrivingLicenseRequestLog,
-    # "PASSPORT": UatPassportRequestLog,
-    # "ADDRESS": UatAddressMatchRequestLog,
-    # }
+        serializer_class = SERIALIZER_MAP.get(service_name)
+        serializer = serializer_class(queryset, many=True) if serializer_class else None
 
-    # class KycDynamicReportAPIView(APIView):
-    # permission_classes = [IsAuthenticated, IsTokenValid]
+        return Response({
+            "success": True,
+            "service": service_name,
+            "count": queryset.count(),
+            "data": serializer.data if serializer else []
+        }, status=status.HTTP_200_OK)
 
-    # def post(self, request):
-    #     data = request.data
-    #     client_id = data.get("client_id")
-    #     vendor_id = data.get("vendor_id")
-    #     myservice_id = data.get("myservice_id")
-    #     status_val = data.get("status")
-    #     from_date = data.get("from_date")
-    #     to_date = data.get("to_date")
-    #     today_only = data.get("today", False)
 
-    #     # Validate service
-    #     my_service = KycMyServices.objects.filter(id=myservice_id).first()
-    #     if not my_service:
-    #         return Response({"success": False, "message": "Invalid service selected"}, status=400)
 
-    #     log_model = SERVICE_LOG_MAPPING.get(my_service.name.upper())
-    #     if not log_model:
-    #         return Response({"success": False, "message": f"No log table mapped for {my_service.name}"}, status=400)
+class KycReportDownloadAPIView(APIView):
+    def post(self, request):
+        queryset, service_name, error = get_filtered_queryset(request.data)
+        if error:
+            return Response({"success": False, "message": error}, status=status.HTTP_400_BAD_REQUEST)
 
-    #     # Build filters
-    #     filters = Q()
-    #     if today_only:
-    #         filters &= Q(created_at__date=date.today())
-    #     if from_date and to_date:
-    #         from_date_parsed = parse_date(from_date)
-    #         to_date_parsed = parse_date(to_date)
-    #         if from_date_parsed and to_date_parsed:
-    #             filters &= Q(created_at__date__range=[from_date_parsed, to_date_parsed])
-    #     if client_id:
-    #         filters &= Q(client_id=client_id)
-    #     if vendor_id:
-    #         filters &= Q(vendor_id=vendor_id)
-    #     if status_val:
-    #         filters &= Q(status__iexact=status_val)
+        if not queryset.exists():
+            return Response({"success": False, "message": "No records found."}, status=status.HTTP_404_NOT_FOUND)
 
-    #     # Fetch logs
-    #     logs_qs = log_model.objects.filter(filters).select_related("client", "vendor").order_by("-id")
+        df = pd.DataFrame(list(queryset.values()))
 
-    #     # Dynamically get all field names from model
-    #     model_fields = [f.name for f in log_model._meta.fields]
+        # ✅ Add service name as the first column
+        df.insert(0, "service_name", service_name)
 
-    #     rows = []
-    #     for log in logs_qs:
-    #         row = {}
-    #         for field in model_fields:
-    #             value = getattr(log, field, None)
-    #             if field in ["client", "vendor"]:
-    #                 # Convert related fields to names
-    #                 if value:
-    #                     value = value.company_name if field == "client" else value.vendor_name
-    #                 else:
-    #                     value = ""
-    #             elif hasattr(value, "strftime"):  # datetime fields formatting
-    #                 value = value.strftime("%Y-%m-%d %H:%M:%S")
-    #             row[field] = value
-    #         rows.append(row)
+        # ✅ Add client_name mapping
+        if "created_by" in df.columns:
+            client_map = {
+                c.id: c.name for c in ClientManagement.objects.filter(
+                    id__in=df["created_by"].dropna().unique()
+                )
+            }
+            df["client_name"] = df["created_by"].map(client_map)
 
-    #     # Convert to DataFrame
-    #     df = pd.DataFrame(rows)
+        # ✅ Drop unwanted columns if needed
+        drop_columns = ["id", "deleted_at", "updated_at", "created_by", "created_at", "pan_details_id", "user_id","bill_details_id","voter_detail_id","name_match_id","rc_details_id","driving_license_id","passport_verification_id","address_match_id","request_id"]
 
-    #     response = HttpResponse(content_type='application/vnd.ms-excel')
-    #     response['Content-Disposition'] = f'attachment; filename="{my_service.name}_kyc_report.xlsx"'
-    #     df.to_excel(response, index=False)
-    #     return response
+        # drop_columns = ["id", "updated_at", "deleted_at"]
+        df.drop(columns=[c for c in drop_columns if c in df.columns], inplace=True, errors="ignore")
 
+        # ✅ Generate downloadable CSV
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{service_name}_Report.csv"'
+        df.to_csv(response, index=False)
+        return response

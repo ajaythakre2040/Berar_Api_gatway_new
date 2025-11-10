@@ -182,7 +182,7 @@ class UatBillDetailsAPIView(APIView):
             self._log_request(
                 customer_id=customer_id,
                 service_provider=service_provider,
-                vendor_name="CACHE",
+                vendor_name="cached",
                 endpoint=request.path,
                 status_code=200,
                 status="success",
