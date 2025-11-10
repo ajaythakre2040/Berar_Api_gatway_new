@@ -61,17 +61,35 @@ class VendorUatBillDetailsAPIView(APIView):
         )
 
     def post(self, request):
-        url = sanitize_input(request.data.get("url"))
-        consumer_id = (sanitize_input(request.data.get("consumer_id")) or "").strip().upper()  # sanitize and then process
-        service_provider = sanitize_input(request.data.get("service_provider"))
-        vendor = sanitize_input(request.data.get("vendor", "Unknown Vendor")).strip() 
+        try:
+            consumer_id = ((sanitize_input(request.data.get("consumer_id")) or "").strip().upper())
+            service_provider = sanitize_input(request.data.get("service_provider"))
+            
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+        url = request.data.get("url")
+        vendor = request.data.get("vendor", "Unknown Vendor").strip()
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         user = request.user if request.user.is_authenticated else None
-
+        
         if not consumer_id:
             return Response(
                 {"success": False, "message": "Missing required field: consumer_id"},
+                status=400,
+            )
+        if not service_provider:
+            return Response(
+                {"success": False, "message": "Missing required field: service_provider"},
                 status=400,
             )
         if not url:
@@ -79,21 +97,38 @@ class VendorUatBillDetailsAPIView(APIView):
                 {"success": False, "message": "Missing required field: url"}, status=400
             )
         response = None
+        
         try:
-
             response = call_dynamic_vendor_api(url, request.data)
-
             if response and isinstance(response, dict) and response.get("http_error"):
+              
+                vendor_resp = response.get("vendor_response") or {}
+
                 error_message = response.get("error_message") or "Vendor API Error"
+
+                vendor_status_code = (
+                    vendor_resp.get("status_code") or
+                    vendor_resp.get("status") or
+                    response.get("status_code") or
+                    400
+                )
+
+                vendor_message = (
+                    vendor_resp.get("message") or
+                    vendor_resp.get("error") or
+                    vendor_resp.get("error_message") or
+                    error_message or
+                    "Vendor API Error"
+                )
                 self._log_request(
                     customer_id=consumer_id,
                     service_provider=service_provider,
                     vendor_name=vendor,
                     endpoint=request.path,
-                    status_code=response.get("status_code") or 400,
+                    status_code=vendor_status_code,
                     status="fail",
                     request_payload=request.data,
-                    response_payload=response.get("vendor_response"),
+                    response_payload=vendor_resp,
                     error_message=error_message,
                     user=user,
                     ip_address=ip_address,
@@ -102,11 +137,11 @@ class VendorUatBillDetailsAPIView(APIView):
                 return Response(
                     {
                         "success": False,
-                        "status": response.get("status_code"),
-                        "message": error_message,
-                        "vendor_response": response.get("vendor_response"),
+                        "status_code": vendor_status_code,
+                        "message": vendor_message,
+                        "error_details": error_message,
                     },
-                    status=response.get("status_code") or 400,
+                    status=vendor_status_code,
                 )
             data = response or {}
             normalized = normalize_vendor_response(vendor, data)
@@ -133,7 +168,6 @@ class VendorUatBillDetailsAPIView(APIView):
                     {"success": False, "message": "No authenticated user found"},
                     status=401,
                 )
-
             with transaction.atomic():
                 bill_obj = save_bill_data(normalized, created_by=user.id)
                 if not bill_obj or not bill_obj.id:

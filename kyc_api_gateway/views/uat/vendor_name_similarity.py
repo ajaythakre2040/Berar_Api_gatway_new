@@ -14,6 +14,7 @@ from kyc_api_gateway.services.uat.name_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_name_request_log import UatNameMatchRequestLog
+from kyc_api_gateway.utils.sanitizer import sanitize_input
 
 
 class VendorUatNameDetailsAPIView(APIView):
@@ -60,44 +61,80 @@ class VendorUatNameDetailsAPIView(APIView):
                 ip_address=ip_address,
                 user_agent=user_agent,
          )
-
+                
     def post(self, request):
+        try:
+            name1 = sanitize_input(request.data.get("name_1")).strip()
+            name2 = sanitize_input(request.data.get("name_2")).strip()           
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+            
         url = request.data.get("url")
-        name1 = request.data.get("name_1").strip()
-        name2 = request.data.get("name_2").strip()
         vendor = request.data.get("vendor", "Unknown Vendor").strip()
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         user = request.user if request.user.is_authenticated else None
         
-        # ✅ Basic Validation
+        if not name1:
+            return Response(
+                {"success": False, "message": "Missing required field: name1"},
+                status=400,
+            )
+        if not name2:
+            return Response(
+                {"success": False, "message": "Missing required field: name2"},
+                status=400,
+            )
+            
+        if not url:
+            return Response(
+                {"success": False, "message": "Missing required field: url"}, status=400
+            )
+        response = None
         
-        if not name1 or not name2 or name1.strip() == "" or name2.strip() == "":
-            missing = []
-            if not name1 or name1.strip() == "":
-                missing.append("name_1")
-            if not name2 or name2.strip() == "":
-                missing.append("name_2")
-
-        response = None  # Important initialization
-
         try:
             # Call vendor API
             response = call_dynamic_vendor_api(url, request.data)
 
             # ✅ Vendor error response handling
             if response and isinstance(response, dict) and response.get("http_error"):
+                vendor_resp = response.get("vendor_response") or {}
+
                 error_message = response.get("error_message") or "Vendor API Error"
 
+                vendor_status_code = (
+                    vendor_resp.get("status_code") or
+                    vendor_resp.get("status") or
+                    response.get("status_code") or
+                    400
+                )
+
+                vendor_message = (
+                    vendor_resp.get("message") or
+                    vendor_resp.get("error") or
+                    vendor_resp.get("error_message") or
+                    error_message or
+                    "Vendor API Error"
+                )
+                
                 self._log_request(
                     name1=name1,
                     name2=name2,
                     vendor_name=None,
                     endpoint=request.path,
-                    status_code=403,
+                    status_code=vendor_status_code,
                     status="fail",
                     request_payload=request.data,
-                    response_payload=None,
+                    response_payload=vendor_resp,
                     error_message=error_message,
                     user=None,
                     match_obj=None,
@@ -108,11 +145,11 @@ class VendorUatNameDetailsAPIView(APIView):
                 return Response(
                     {
                         "success": False,
-                        "status": response.get("status_code"),
-                        "message": error_message,
-                        "vendor_response": response.get("vendor_response"),
+                        "status_code": vendor_status_code,
+                        "message": vendor_message,
+                        "error_details": error_message,
                     },
-                    status=response.get("status_code") or 400,
+                    status=vendor_status_code,
                 )
 
             data = response or {}

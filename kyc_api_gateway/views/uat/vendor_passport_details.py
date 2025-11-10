@@ -14,6 +14,7 @@ from kyc_api_gateway.services.uat.passport_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_passport_log import UatPassportRequestLog
+from kyc_api_gateway.utils.sanitizer import sanitize_input
 
 
 class VendorUatPassportDetailsAPIView(APIView):
@@ -64,23 +65,45 @@ class VendorUatPassportDetailsAPIView(APIView):
             user_agent=user_agent,
             # created_by=created_by,
         )
-
+       
+    
     def post(self, request):
+        try:
+            file_number = sanitize_input(request.data.get("file_number"))
+            dob = sanitize_input(request.data.get("dob"))            
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+            
         url = request.data.get("url")
-        file_number = request.data.get("file_number")
-        dob = request.data.get("dob")
         vendor = request.data.get("vendor", "Unknown Vendor").strip()
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         user = request.user if request.user.is_authenticated else None
-
-        if not file_number or not dob or file_number.strip() == "":
-            missing = []
-            if not file_number or file_number.strip() == "":
-                missing.append("file_number")
-            if not dob or dob.strip() == "":
-                missing.append("dob")
-
+        
+        if not file_number:
+            return Response(
+                {"success": False, "message": "Missing required field: file_number"},
+                status=400,
+            )
+        if not dob:
+            return Response(
+                {"success": False, "message": "Missing required field: dob"},
+                status=400,
+            )
+            
+        if not url:
+            return Response(
+                {"success": False, "message": "Missing required field: url"}, status=400
+            )
         response = None
 
         try:
@@ -89,18 +112,35 @@ class VendorUatPassportDetailsAPIView(APIView):
             
 
             if response and isinstance(response, dict) and response.get("http_error"):
+                vendor_resp = response.get("vendor_response") or {}
+
                 error_message = response.get("error_message") or "Vendor API Error"
 
+                vendor_status_code = (
+                    vendor_resp.get("status_code") or
+                    vendor_resp.get("status") or
+                    response.get("status_code") or
+                    400
+                )
+
+                vendor_message = (
+                    vendor_resp.get("message") or
+                    vendor_resp.get("error") or
+                    vendor_resp.get("error_message") or
+                    error_message or
+                    "Vendor API Error"
+                )
+                
                 self._log_passport_request(
                     file_number=file_number,
                     dob=dob,
                     vendor_name=vendor,
                     endpoint=request.path,
-                    status_code=response.get("status_code") or 500,
+                    status_code=vendor_status_code,
                     status="fail",
                     request_payload=request.data,
-                    response_payload=response.get("vendor_response"),
-                    error_message=response.get("error_message"),
+                    response_payload=vendor_resp,
+                    error_message=error_message,
                     user=None,
                     verification_obj=None,
                     ip_address=ip_address,
@@ -109,13 +149,12 @@ class VendorUatPassportDetailsAPIView(APIView):
                 return Response(
                     {
                         "success": False,
-                        "status": response.get("status_code"),
-                        "message": error_message,
-                        "vendor_response": response.get("vendor_response"),
+                        "status_code": vendor_status_code,
+                        "message": vendor_message,
+                        "error_details": error_message,
                     },
-                    status=response.get("status_code") or 400,
+                    status=vendor_status_code,
                 )
-
             data = response or {}
             normalized = normalize_vendor_response(vendor, data, request.data)
            

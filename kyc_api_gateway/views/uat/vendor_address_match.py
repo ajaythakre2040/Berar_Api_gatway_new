@@ -23,21 +23,6 @@ from kyc_api_gateway.utils.sanitizer import sanitize_input
 class VendorUatAddressDetailsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsTokenValid]
 
-    # @staticmethod
-    # def sanitize_input(value):
-    #     if not value:
-    #         return value
-    #     value = value.strip()
-
-    #     clean_value = re.sub(r"<.*?>", "", value)
-
-    #     if re.search(
-    #         r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE
-    #     ):
-    #         raise ValueError("Invalid characters detected in input.")
-
-    #     return clean_value
-
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
@@ -79,54 +64,79 @@ class VendorUatAddressDetailsAPIView(APIView):
             user_agent=user_agent,
         )
 
+
     def post(self, request):
+        try:
+            address1 = sanitize_input(request.data.get("address1"))
+            address2 = sanitize_input(request.data.get("address2"))
+            
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+            
         url = request.data.get("url")
-        address1 = sanitize_input(request.data.get("address1"))
-        address2 = sanitize_input(request.data.get("address2"))
         vendor = request.data.get("vendor", "Unknown Vendor").strip()
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         user = request.user if request.user.is_authenticated else None
-
-        if not address1 or address1.strip() == "":
-            missing = []
-            if not address1 or address1.strip() == "":
-                missing.append("address1")
-
-        if not address2 or address2.strip() == "":
-            missing = []
-            if not address2 or address2.strip() == "":
-                missing.append("address2")
-
+        if not address1:
+            return Response(
+                {"success": False, "message": "Missing required field: address1"},
+                status=400,
+            )
+        if not address2:
+            return Response(
+                {"success": False, "message": "Missing required field: address2"},
+                status=400,
+            )
+            
         if not url:
             return Response(
                 {"success": False, "message": "Missing required field: url"}, status=400
             )
-
         response = None
 
         try:
 
             response = call_dynamic_vendor_api(url, request.data)
             if response and isinstance(response, dict) and response.get("http_error"):
+                
+                vendor_resp = response.get("vendor_response") or {}
 
                 error_message = response.get("error_message") or "Vendor API Error"
-                vendor_message = response.get("vendor_response", {}).get(
-                    "message", "Unknown error"
+
+                vendor_status_code = (
+                    vendor_resp.get("status_code") or
+                    vendor_resp.get("status") or
+                    response.get("status_code") or
+                    400
                 )
-                vendor_status_code = response.get("vendor_response", {}).get(
-                    "status_code", 400
+
+                vendor_message = (
+                    vendor_resp.get("message") or
+                    vendor_resp.get("error") or
+                    vendor_resp.get("error_message") or
+                    error_message or
+                    "Vendor API Error"
                 )
 
                 self._log_request(
-                    address1=None,
-                    address2=None,
+                    address1=address1,
+                    address2=address2,
                     vendor_name=vendor,
                     endpoint=request.path,
                     status_code=vendor_status_code,
                     status="fail",
                     request_payload=request.data,
-                    response_payload=None,
+                    response_payload=vendor_resp,
                     error_message=error_message,
                     user=None,
                     match_obj=None,
