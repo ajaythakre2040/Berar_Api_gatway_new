@@ -4,6 +4,7 @@ from rest_framework import status
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from constant import STATUS_ACTIVE
+from kyc_api_gateway.models.api_management import ApiManagement
 from kyc_api_gateway.models.vendor_management import VendorManagement
 from kyc_api_gateway.serializers.vendor_management_serializer import (
     VendorManagementSerializer,
@@ -22,7 +23,7 @@ class VendorManagementListCreate(APIView):
         vendors = VendorManagement.objects.filter(deleted_at__isnull=True)
 
         total_vendor = vendors.count()
-        total_active_vendor = vendors.filter(status=True).count()  # BooleanField
+        total_active_vendor = vendors.filter(status=True).count()  
 
         if search_query:
             vendors = vendors.filter(
@@ -112,7 +113,7 @@ class VendorManagementDetail(APIView):
         )
 
 
-class VendorApiList(APIView):
+class VendorNameList(APIView):
     permission_classes = [IsAuthenticated, IsTokenValid]
 
     def get(self, request):
@@ -126,6 +127,82 @@ class VendorApiList(APIView):
                 "success": True,
                 "message": "API list retrieved successfully.",
                 "data": list(apis),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class VendorUrlList(APIView):
+    permission_classes = [IsAuthenticated, IsTokenValid]
+
+    def get(self, request):
+        vendor_id = request.query_params.get("vendor_id")
+        url_type = request.query_params.get("url_type")  
+        if not vendor_id or not url_type:
+            return Response(
+                {"success": False, "message": "vendor_id and url_type are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            vendor = VendorManagement.objects.values(
+                "id",
+                "vendor_name",
+                "header_key_name",
+                "uat_base_url",
+                "uat_api_key",
+                "prod_base_url",
+                "prod_api_key",
+            ).get(id=vendor_id, deleted_at__isnull=True)
+        except VendorManagement.DoesNotExist:
+            return Response(
+                {"success": False, "message": "Vendor not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        url_type = url_type.upper()
+        if url_type == "UAT":
+            base_url = vendor["uat_base_url"]
+            vendor_details = {
+                "id": vendor["id"],
+                "vendor_name": vendor["vendor_name"],
+                "header_key_name": vendor["header_key_name"],
+                "uat_base_url": vendor["uat_base_url"],
+                "api_key": vendor["uat_api_key"],
+            }
+        elif url_type == "PRODUCTION":
+            base_url = vendor["prod_base_url"]
+            vendor_details = {
+                "id": vendor["id"],
+                "vendor_name": vendor["vendor_name"],
+                "header_key_name": vendor["header_key_name"],
+                "prod_base_url": vendor["prod_base_url"],
+                "api_key": vendor["prod_api_key"],
+            }
+        else:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Invalid url_type. Allowed: UAT or Production",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        endpoints_queryset = ApiManagement.objects.filter(
+            deleted_at__isnull=True, vendor_id=vendor_id
+        ).values("endpoint_path", "api_name")
+        endpoints = [
+            {"api_name": item["api_name"], "url": f"{base_url}{item['endpoint_path']}"}
+            for item in endpoints_queryset
+        ]
+        return Response(
+            {
+                "success": True,
+                "message": "Vendor details fetched successfully",
+                "data": {
+                    "vendor_details": vendor_details,
+                    "selected_url_type": url_type,
+                    "endpoints": endpoints,
+                },
             },
             status=status.HTTP_200_OK,
         )

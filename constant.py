@@ -1,3 +1,5 @@
+from django.db import models
+
 ADMIN_USER = {
     "first_name": "Admin",
     "last_name": "User",
@@ -15,7 +17,6 @@ STATUS_INACTIVE = 2
 STATUS_SUSPENDED = 3
 STATUS_PENDING = 4
 STATUS_LOCKED = 5
-
 # Optional mapping for labels (sirf display ke liye)
 USER_STATUS = {
     1: "Active",
@@ -26,7 +27,6 @@ USER_STATUS = {
 }
 USER_STATUS_CHOICES = [(k, v) for k, v in USER_STATUS.items()]
 MAX_LOGIN_ATTEMPTS = 5
-
 KYC_MY_SERVICES = {
     "PAN": 1,
     "BILL": 2,
@@ -34,6 +34,21 @@ KYC_MY_SERVICES = {
     "NAME": 4,
     "RC": 5,
     "DRIVING": 6,
-    "PASSPORT": 8,
-    "ADDRESS": 9,
+    "PASSPORT": 7,
 }
+
+
+class DeliveryStatus(models.IntegerChoices):
+    PENDING = 1, "Pending"
+    DELIVERED = 2, "Delivered"
+    FAILED = 3, "Failed"
+    VERIFIED = 4, "Verified"
+    EXPIRED = 5, "Expired"
+    CANCELLED = 6, "Cancelled"
+    # -----------------------
+
+
+# SMS Types
+# -----------------------
+class SmsType(models.IntegerChoices):
+    LOGIN_OTP = 1, "Client Login OTP"

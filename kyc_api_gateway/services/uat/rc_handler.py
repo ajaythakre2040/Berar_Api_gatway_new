@@ -86,7 +86,6 @@ def call_rc_vendor_api(vendor, request_data):
             "error_message": str(e)
         }
 
-
 def normalize_rc_response(vendor_name, raw_data):
     
     result = raw_data.get("result") or raw_data.get("data") or raw_data
@@ -142,14 +141,62 @@ def normalize_rc_response(vendor_name, raw_data):
     return normalized
 
 def save_rc_data(normalized, created_by):
- 
-    if not normalized or not normalized.get("rc_number"):
-        raise ValueError("RC number missing in normalized data")
+    if not normalized:
+        print("[ERROR] Cannot save RC data: normalized is None")
+        return None
 
-    rc_obj, created = UatRcDetails.objects.update_or_create(
-        rc_number=normalized.get("rc_number"),
-        defaults={**normalized, "created_by": created_by},
-    )
+    rc_fields = [f.name for f in UatRcDetails._meta.get_fields()]
 
-    print("RC Data Saved:", rc_obj.rc_number, "| Created:", created)
-    return rc_obj
+    filtered_data = {k: v for k, v in normalized.items() if k in rc_fields}
+
+    filtered_data["created_by"] = created_by
+
+    try:
+        return UatRcDetails.objects.create(**filtered_data)
+    except Exception as e:
+        print(f"[ERROR] Failed saving RCDetails: {e}")
+        return None
+
+
+def call_dynamic_vendor_api(url, request_data):
+    headers = {"Content-Type": "application/json"}
+    vendor_name = request_data.get("vendor")
+    header_key_name = request_data.get("header_key_name")
+    api_key = request_data.get("api_key")
+    if vendor_name == "karza":
+        headers["x-karza-key"] = api_key
+    elif vendor_name == "surepass":
+        headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
+    if header_key_name and api_key:
+        headers[header_key_name] = api_key
+    payload = build_rc_request(vendor_name, request_data)
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        try:
+            return response.json()
+        except ValueError:
+            return {
+                "http_error": True,
+                "status_code": response.status_code,
+                "vendor_response": response.text,
+                "error_message": "Invalid JSON response",
+            }
+    except requests.HTTPError as e:
+        try:
+            error_content = response.json()
+        except Exception:
+            error_content = response.text
+        return {
+            "http_error": True,
+            "status_code": response.status_code,
+            "vendor_response": error_content,
+            "error_message": str(e),
+        }
+    except Exception as e:
+        return {
+            "http_error": True,
+            "status_code": None,
+            "vendor_response": None,
+            "error_message": str(e),
+        }

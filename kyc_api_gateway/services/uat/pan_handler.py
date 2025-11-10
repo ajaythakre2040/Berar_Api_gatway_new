@@ -8,10 +8,11 @@ SUREPASS_TOKEN = config("SUREPASS_TOKEN", default=None)
 if not SUREPASS_TOKEN:
     raise ValueError("SUREPASS_TOKEN is not set in your environment variables.")
 
+
 def build_vendor_request(vendor_name, request_data):
     if vendor_name == "karza":
         return {
-            "pan":  request_data.get("pan") or request_data.get("pan"),
+            "pan": request_data.get("pan") or request_data.get("pan"),
             "aadhaarLastFour": "",
             "dob": "",
             "name": "",
@@ -24,15 +25,14 @@ def build_vendor_request(vendor_name, request_data):
             "consent": "Y",
         }
     elif vendor_name == "surepass":
-        return {
-            "id_number": request_data.get("pan")
-        }
+        return {"id_number": request_data.get("pan")}
     return request_data
 
 
 def call_vendor_api(vendor, request_data):
-   
+
     import requests
+
     vendor_key = vendor.vendor_name.lower()
     endpoint_path = VENDOR_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
@@ -42,7 +42,7 @@ def call_vendor_api(vendor, request_data):
             "http_error": True,
             "status_code": None,
             "vendor_response": None,
-            "error_message": f"Vendor '{vendor.vendor_name}' not configured properly."
+            "error_message": f"Vendor '{vendor.vendor_name}' not configured properly.",
         }
 
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
@@ -50,19 +50,16 @@ def call_vendor_api(vendor, request_data):
     headers = {"Content-Type": "application/json"}
     payload = build_vendor_request(vendor_key, request_data)
 
-
     if vendor_key == "karza":
         headers["x-karza-key"] = vendor.uat_api_key
 
     elif vendor_key == "surepass":
         headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
-    
+
     try:
         response = requests.post(full_url, json=payload, headers=headers)
-        response.raise_for_status()  # Will trigger HTTPError for 4xx/5xx
-        # response = requests.post(full_url, json=payload, headers=headers, timeout=vendor.timeout or 30)
-        # return response
-    
+        response.raise_for_status()
+
         try:
             return response.json()
         except ValueError:
@@ -70,11 +67,11 @@ def call_vendor_api(vendor, request_data):
                 "http_error": True,
                 "status_code": response.status_code,
                 "vendor_response": response.text,
-                "error_message": "Invalid JSON response"
+                "error_message": "Invalid JSON response",
             }
 
     except requests.HTTPError as e:
-        # Capture 400/403/500 error details for logging
+
         try:
             error_content = response.json()
         except Exception:
@@ -83,7 +80,7 @@ def call_vendor_api(vendor, request_data):
             "http_error": True,
             "status_code": response.status_code,
             "vendor_response": error_content,
-            "error_message": str(e)
+            "error_message": str(e),
         }
 
     except Exception as e:
@@ -91,10 +88,12 @@ def call_vendor_api(vendor, request_data):
             "http_error": True,
             "status_code": None,
             "vendor_response": None,
-            "error_message": str(e)
+            "error_message": str(e),
         }
+
+
 def normalize_vendor_response(vendor_name, raw_data):
- 
+
     result = raw_data.get("result") or raw_data.get("data") or {}
     if not result:
         return None
@@ -141,7 +140,11 @@ def normalize_vendor_response(vendor_name, raw_data):
             "middle_name": split[1] if len(split) > 1 else None,
             "last_name": split[2] if len(split) > 2 else None,
             "dob": result.get("dob") or result.get("input_dob"),
-            "gender": "male" if str(result.get("gender", "")).lower().startswith("m") else "female",
+            "gender": (
+                "male"
+                if str(result.get("gender", "")).lower().startswith("m")
+                else "female"
+            ),
             "phone_number": result.get("phone_number"),
             "email": result.get("email"),
             "aadhaar_linked": result.get("aadhaar_linked"),
@@ -157,7 +160,7 @@ def normalize_vendor_response(vendor_name, raw_data):
 
 
 def save_pan_data(normalized, created_by):
-   
+    print( "normalized ", normalized)
     address = normalized.get("address", {})
     pan_obj = UatPanDetails.objects.create(
         request_id=normalized.get("request_id"),
@@ -195,3 +198,49 @@ def save_pan_data(normalized, created_by):
     )
     return pan_obj
 
+
+def call_dynamic_vendor_api(url, request_data):
+    headers = {"Content-Type": "application/json"}
+    vendor_name = request_data.get("vendor")
+    header_key_name = request_data.get("header_key_name")
+    api_key = request_data.get("api_key")
+    if vendor_name == "karza":
+        headers["x-karza-key"] = api_key
+
+    elif vendor_name == "surepass":
+        headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
+    if header_key_name and api_key:
+        headers[header_key_name] = api_key
+    payload = build_vendor_request(vendor_name, request_data)
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        # print("response ", response)
+        response.raise_for_status()
+        try:
+            return response.json()
+        except ValueError:
+            return {
+                "http_error": True,
+                "status_code": response.status_code,
+                "vendor_response": response.text,
+                "error_message": "Invalid JSON response",
+            }
+    except requests.HTTPError as e:
+        try:
+            error_content = response.json()
+        except Exception:
+            error_content = response.text
+        return {
+            "http_error": True,
+            "status_code": response.status_code,
+            "vendor_response": error_content,
+            "error_message": str(e),
+        }
+    except Exception as e:
+        return {
+            "http_error": True,
+            "status_code": None,
+            "vendor_response": None,
+            "error_message": str(e),
+        }

@@ -18,6 +18,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("auth_system/", include("auth_system.urls")),
     path("kyc_api_gateway/", include("kyc_api_gateway.urls")), 
-
+    path("client_auth/", include("client_auth.urls")),
 
 ]
