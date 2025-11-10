@@ -149,7 +149,7 @@ class UatDrivingLicenseAPIView(APIView):
             self._log_request(
                 dl_number=cached.dl_number,
                 name=cached.name,
-                vendor="CACHE",
+                vendor="cached",
                 endpoint=request.path,
                 status_code=200,
                 status="success",

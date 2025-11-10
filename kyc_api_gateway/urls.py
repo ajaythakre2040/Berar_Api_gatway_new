@@ -68,6 +68,11 @@ from kyc_api_gateway.views.uat.driving_license_details_view import (
 )
 from kyc_api_gateway.views.uat.passport_view import UatPassportView
 from kyc_api_gateway.views.uat.address_details_view import AddressMatchUatAPIView
+from kyc_api_gateway.views.uat.reports import ReportAPIView
+from kyc_api_gateway.views.uat.reports import KycReportDownloadAPIView
+#production
+from kyc_api_gateway.views.pro.bill_details_view import ProBillDetailsAPIView   
+from kyc_api_gateway.views.pro.pan_details_view import ProPanDetailsAPIView   
 
 # production
 from kyc_api_gateway.views.pro.bill_details_view import ProBillDetailsAPIView
@@ -117,26 +122,10 @@ urlpatterns = [
         KycMyServicesNameList.as_view(),
         name="kyc_my_services_name_list",
     ),
-    path(
-        "kyc_client_services/",
-        KycClientServicesListCreate.as_view(),
-        name="kyc_client_services_list",
-    ),
-    path(
-        "kyc_client_services/<int:pk>/",
-        KycClientServicesDetail.as_view(),
-        name="kyc_client_services_detail",
-    ),
-    path(
-        "vendor_priority/",
-        KycVendorPriorityListCreate.as_view(),
-        name="vendor_priority_list_create",
-    ),
-    path(
-        "vendor_priority/<int:pk>/",
-        KycVendorPriorityDetail.as_view(),
-        name="vendor_priority_detail",
-    ),
+    path( "kyc_client_services/", KycClientServicesListCreate.as_view(), name="kyc_client_services_list", ),
+    path( "kyc_client_services/<int:pk>/", KycClientServicesDetail.as_view(), name="kyc_client_services_detail", ),
+    path( "vendor_priority/", KycVendorPriorityListCreate.as_view(), name="vendor_priority_list_create", ),
+    path( "vendor_priority/<int:pk>/", KycVendorPriorityDetail.as_view(), name="vendor_priority_detail", ),
     # uat
     # path("vendor_active_count/", VendorAllCount.as_view(), name="Vendor_all_count"),
     path("vendors_name_list/", VendorNameList.as_view(), name="vendor_name_list"),
@@ -152,6 +141,15 @@ urlpatterns = [
         "uat_voter_details/", UatVoterDetailsAPIView.as_view(), name="uat_voter_details"
     ),
     path("uat_rc_details/", RcUatAPIView.as_view(), name="uat_rc_details"),
+    path("uat_driving_license_details/", UatDrivingLicenseAPIView.as_view(), name="uat_driving_license_details"),
+    path("uat_passport_details/", UatPassportView.as_view(), name="uat_passport_details"),
+    path("uat_address_details/", AddressMatchUatAPIView.as_view(), name="uat_address_details"),
+
+    path("uat_report/", ReportAPIView.as_view(), name="uat_report"),
+    path("uat_report_download/", KycReportDownloadAPIView.as_view(), name="uat_report_download"),
+
+    #production
+    path("prod_bill_details/", ProBillDetailsAPIView.as_view(), name="prod_bill_details"),
     path(
         "uat_driving_license_details/",
         UatDrivingLicenseAPIView.as_view(),

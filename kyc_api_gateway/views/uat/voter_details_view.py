@@ -163,7 +163,7 @@ class UatVoterDetailsAPIView(APIView):
             serializer = UatVoterDetailSerializer(cached)
             self._log_request(
                 voter_id=voter_id,
-                vendor_name="CACHE",
+                vendor_name="cached",
                 endpoint=request.path,
                 status_code=200,
                 status="success",

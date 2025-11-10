@@ -168,7 +168,7 @@ class UatPanDetailsAPIView(APIView):
             serializer = UatPanDetailsSerializer(cached)
             self._log_request(
                 pan_number=pan,
-                vendor_name="CACHE",
+                vendor_name="cached",
                 endpoint=request.path,
                 status_code=200,
                 status="success",
