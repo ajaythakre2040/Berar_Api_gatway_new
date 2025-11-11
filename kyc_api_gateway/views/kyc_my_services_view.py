@@ -12,6 +12,10 @@ from kyc_api_gateway.models.kyc_my_services import KycMyServices
 from kyc_api_gateway.serializers.kyc_my_services_serializer import (
     KycMyServicesSerializer,
 )
+from client_auth.permissions.authentication import ClientJWTAuthentication
+from client_auth.models.login_session import LoginSession   
+from kyc_api_gateway.models import KycClientServicesManagement
+
 
 
 class KycMyServicesListCreate(APIView):
@@ -157,6 +161,65 @@ class KycMyServicesListAll(APIView):
     def get(self, request):
 
         services = KycMyServices.objects.filter(deleted_at__isnull=True).order_by("id")
+
+        serializer = KycMyServicesSerializer(services, many=True)
+
+        return Response(
+            {
+                "success": True,
+                "message": "Services list retrieved successfully.",
+                "data": serializer.data,
+            },
+            status=200,
+        )
+
+class KycMyClientServicesListAll(APIView):
+    authentication_classes = [ClientJWTAuthentication]
+
+    print("KycMyServicesListAll accessed")
+    permission_classes = [AllowAny]  
+
+    def get(self, request):
+        user = request.user
+
+        if not user or not hasattr(user, "id"):
+            services = KycMyServices.objects.filter(deleted_at__isnull=True).order_by("id")
+
+        else:
+            client_id = user.id
+
+            active_session = (
+                LoginSession.objects.filter(client_id=client_id, is_active=True)
+                .order_by("-login_at")
+                .first()
+            )
+
+            if not active_session:
+                return Response({
+                    "success": False,
+                    "message": "Session expired or not logged in. Please login again."
+                }, status=401)
+
+            if active_session.expiry_at and active_session.expiry_at < timezone.now():
+                active_session.is_active = False
+                active_session.save(update_fields=["is_active"])
+                return Response({
+                    "success": False,
+                    "message": "Session expired. Please login again."
+                }, status=401)
+
+            allowed_service_ids = (
+                KycClientServicesManagement.objects.filter(
+                    client_id=client_id,
+                    status=True,
+                    deleted_at__isnull=True
+                )
+                .values_list("myservice_id", flat=True)
+            )
+
+            services = KycMyServices.objects.filter(
+                id__in=allowed_service_ids, deleted_at__isnull=True
+            ).order_by("id")
 
         serializer = KycMyServicesSerializer(services, many=True)
 
