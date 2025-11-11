@@ -3,13 +3,15 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from auth_system.permissions.token_valid import IsTokenValid
 from auth_system.utils.pagination import CustomPagination
 from django.db.models import Q
 
 from kyc_api_gateway.models.kyc_my_services import KycMyServices
-from kyc_api_gateway.serializers.kyc_my_services_serializer import KycMyServicesSerializer
+from kyc_api_gateway.serializers.kyc_my_services_serializer import (
+    KycMyServicesSerializer,
+)
 
 
 class KycMyServicesListCreate(APIView):
@@ -106,7 +108,6 @@ class KycMyServicesDetail(APIView):
             {"success": True, "message": "Service deleted successfully."},
             status=status.HTTP_200_OK,
         )
-    
 
 
 class KycMyServicesNameList(APIView):
@@ -149,3 +150,21 @@ class KycMyServicesNameList(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+
+class KycMyServicesListAll(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+
+        services = KycMyServices.objects.filter(deleted_at__isnull=True).order_by("id")
+
+        serializer = KycMyServicesSerializer(services, many=True)
+
+        return Response(
+            {
+                "success": True,
+                "message": "Services list retrieved successfully.",
+                "data": serializer.data,
+            },
+            status=200,
+        )

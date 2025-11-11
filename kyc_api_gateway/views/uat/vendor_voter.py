@@ -14,6 +14,8 @@ from kyc_api_gateway.services.uat.voter_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_voter_request_log import UatVoterRequestLog
+from kyc_api_gateway.utils.sanitizer import sanitize_input
+
 
 class VendorUatVoterDetailsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsTokenValid]
@@ -56,23 +58,41 @@ class VendorUatVoterDetailsAPIView(APIView):
             ip_address=ip_address,
             user_agent=user_agent,
         )
+        
 
     def post(self, request):
+        try:
+            voter_id = sanitize_input(request.data.get("id_number") or "").strip().upper()
+            
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+            
         url = request.data.get("url")
-        voter_id = (request.data.get("id_number") or "").strip().upper()
         vendor = request.data.get("vendor", "Unknown Vendor").strip()
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         user = request.user if request.user.is_authenticated else None
-
-        # ✅ Basic Validation
+        
         if not voter_id:
-            return Response({"success": False, "message": "Missing required field: voter_id"}, status=400)
-
+            return Response(
+                {"success": False, "message": "Missing required field: voter_id"},
+                status=400,
+            )
+            
         if not url:
-            return Response({"success": False, "message": "Missing required field: url"}, status=400)
-
-        response = None  # Important initialization
+            return Response(
+                {"success": False, "message": "Missing required field: url"}, status=400
+            )
+        response = None
 
         try:
             # Call vendor API
@@ -80,17 +100,33 @@ class VendorUatVoterDetailsAPIView(APIView):
 
             # ✅ Vendor error response handling
             if response and isinstance(response, dict) and response.get("http_error"):
+                vendor_resp = response.get("vendor_response") or {}
+
                 error_message = response.get("error_message") or "Vendor API Error"
 
+                vendor_status_code = (
+                    vendor_resp.get("status_code") or
+                    vendor_resp.get("status") or
+                    response.get("status_code") or
+                    400
+                )
+
+                vendor_message = (
+                    vendor_resp.get("message") or
+                    vendor_resp.get("error") or
+                    vendor_resp.get("error_message") or
+                    error_message or
+                    "Vendor API Error"
+                )
                 self._log_request(
                     voter_id=None,
                     vendor_name=None,
                     endpoint=request.path,
-                    status_code=400,
+                    status_code=vendor_status_code,
                     status="fail",
                     request_payload=request.data,
-                    response_payload=None,
-                    error_message="Missing required field: id_number",
+                    response_payload=vendor_resp,
+                    error_message=error_message,
                     user=user,
                     ip_address=ip_address,
                     user_agent=user_agent
@@ -99,13 +135,13 @@ class VendorUatVoterDetailsAPIView(APIView):
                 return Response(
                     {
                         "success": False,
-                        "status": response.get("status_code"),
-                        "message": error_message,
-                        "vendor_response": response.get("vendor_response"),
+                        "status_code": vendor_status_code,
+                        "message": vendor_message,
+                        "error_details": error_message,
                     },
-                    status=response.get("status_code") or 400,
+                    status=vendor_status_code,
                 )
-
+                
             data = response or {}
             normalized = normalize_vendor_response(vendor, data)
             if not normalized:

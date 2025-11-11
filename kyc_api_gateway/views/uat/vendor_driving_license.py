@@ -16,11 +16,18 @@ from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_driving_license_log import UatDrivingLicenseRequestLog
 from auth_system.permissions.token_valid import IsTokenValid
 from rest_framework.permissions import IsAuthenticated
+from kyc_api_gateway.utils.sanitizer import sanitize_input
 
 
 class VendorUatDrivingDetailsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsTokenValid]
 
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            return x_forwarded_for.split(",")[0]
+        return request.META.get("REMOTE_ADDR")
+    
     def _log_request(
         self,
         request_id,
@@ -59,53 +66,98 @@ class VendorUatDrivingDetailsAPIView(APIView):
         )
 
     def post(self, request):
+        try:
+            license_no = sanitize_input(request.data.get("license_no"))
+            dob = sanitize_input(request.data.get("dob"))          
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+            
         url = request.data.get("url")
-        dlNo = (request.data.get("license_no") or "dlNo").strip().upper()
-        dob = request.data.get("dob")
-        vendor = request.data.get("vendor", "Unknown Vendor")
-        ip_address = request.META.get("REMOTE_ADDR")
+        vendor = request.data.get("vendor", "Unknown Vendor").strip()
+        ip_address = self.get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         user = request.user if request.user.is_authenticated else None
-
-        if not dlNo or not dob:
-            missing = []
-            if not dlNo:
-                missing.append("license_no")
-            if not dob:
-                missing.append("dob")
-            error_msg = f"Missing required fields: {', '.join(missing)}"
-
+        
+        if not license_no:
             return Response(
-                {"success": False, "status": 400, "error": error_msg}, status=400
+                {"success": False, "message": "Missing required field: license_no"},
+                status=400,
             )
-
+        if not dob:
+            return Response(
+                {"success": False, "message": "Missing required field: dob"},
+                status=400,
+            )
+            
+        if not url:
+            return Response(
+                {"success": False, "message": "Missing required field: url"}, status=400
+            )
+        response = None
+        
         try:
 
             response = call_dynamic_vendor_api(url, request.data)
 
             if response and isinstance(response, dict) and response.get("http_error"):
+                vendor_resp = response.get("vendor_response") or {}
+
+                error_message = response.get("error_message") or "Vendor API Error"
+
+                vendor_status_code = (
+                    vendor_resp.get("status_code") or
+                    vendor_resp.get("status") or
+                    response.get("status_code") or
+                    400
+                )
+
+                vendor_message = (
+                    vendor_resp.get("message") or
+                    vendor_resp.get("error") or
+                    vendor_resp.get("error_message") or
+                    error_message or
+                    "Vendor API Error"
+                )
+                
                 self._log_request(
-                    dl_number=dlNo,
+                    dl_number=license_no,
                     request_id=None,
                     vendor=vendor,
                     endpoint=request.path,
-                    status_code=response.get("status_code") or 500,
+                    status_code=vendor_status_code,
                     status="fail",
                     request_payload=request.data,
-                    response_payload=response.get("vendor_response"),
-                    error_message=response.get("error_message"),
+                    response_payload=vendor_resp,
+                    error_message=error_message,
                     ip_address=ip_address,
                     user_agent=user_agent,
                     user=user,
                 )
-                return Response(response, status=response.get("status_code") or 500)
+                return Response(
+                    {
+                        "success": False,
+                        "status_code": vendor_status_code,
+                        "message": vendor_message,
+                        "error_details": error_message,
+                    },
+                    status=vendor_status_code,
+                )
 
             data = response or {}
             normalized = normalize_vendor_response(vendor, data)
 
             if not normalized:
                 self._log_request(
-                    dl_number=dlNo,
+                    dl_number=license_no,
                     request_id=None,
                     vendor=vendor,
                     endpoint=request.path,
@@ -130,7 +182,7 @@ class VendorUatDrivingDetailsAPIView(APIView):
             serializer = UatDrivingLicenseSerializer(dlNo_obj)
 
             self._log_request(
-                dl_number=dlNo,
+                dl_number=license_no,
                 request_id=dlNo_obj.request_id,
                 vendor=vendor,
                 endpoint=request.path,
@@ -156,7 +208,7 @@ class VendorUatDrivingDetailsAPIView(APIView):
         except Exception as e:
 
             self._log_request(
-                dl_number=dlNo,
+                dl_number=license_no,
                 vendor=vendor,
                 endpoint=request.path,
                 status_code=500,
