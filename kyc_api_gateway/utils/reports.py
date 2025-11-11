@@ -6,7 +6,7 @@ from kyc_api_gateway.models import (
     UatPanRequestLog, UatBillRequestLog, UatVoterRequestLog,
     UatNameMatchRequestLog, UatRcRequestLog,
     UatDrivingLicenseRequestLog, UatPassportRequestLog,
-    UatAddressMatchRequestLog,
+    UatAddressMatchRequestLog,KycClientServicesManagement
 )
 
 def get_filtered_queryset(data):
@@ -18,6 +18,15 @@ def get_filtered_queryset(data):
     to_date = data.get("to_date")
     client_id = data.get("client_id")
 
+    if client_id:
+        allowed_services = KycClientServicesManagement.objects.filter(
+            client_id=client_id,
+            status=True
+        ).values_list('myservice_id', flat=True)
+
+    if myservice_id and int(myservice_id) not in allowed_services:
+        return None, None, "Unauthorized access to the requested service"
+    
     service_map = {
         KYC_MY_SERVICES.get("PAN"): (UatPanRequestLog, "PAN"),
         KYC_MY_SERVICES.get("BILL"): (UatBillRequestLog, "BILL"),
