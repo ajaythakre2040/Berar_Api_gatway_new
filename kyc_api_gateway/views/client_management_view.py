@@ -8,7 +8,7 @@ from kyc_api_gateway.models.client_management import ClientManagement
 from kyc_api_gateway.serializers.client_management_serializer import (
     ClientManagementSerializer,
 )
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from auth_system.permissions.token_valid import IsTokenValid
 from kyc_api_gateway.models.api_management import ApiManagement
 from auth_system.utils.pagination import CustomPagination
@@ -16,7 +16,7 @@ from django.db.models import Q
 
 
 class ClientManagementListCreate(APIView):
-    permission_classes = [IsAuthenticated, IsTokenValid]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         search_query = request.GET.get("search", "").strip()
@@ -73,7 +73,7 @@ class ClientManagementListCreate(APIView):
 
 
 class ClientManagementDetail(APIView):
-    permission_classes = [IsAuthenticated, IsTokenValid]
+    permission_classes = [AllowAny]
 
     def get(self, request, pk):
         client = get_object_or_404(ClientManagement, pk=pk, deleted_at__isnull=True)

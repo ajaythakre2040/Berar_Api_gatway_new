@@ -4,6 +4,8 @@ from rest_framework import status
 from django.http import HttpResponse
 import pandas as pd
 
+from client_auth.permissions.authentication import ClientJWTAuthentication
+from client_auth.permissions.permissions import IsClientAuthenticated
 from kyc_api_gateway.utils.reports import get_filtered_queryset
 from kyc_api_gateway.models import ClientManagement
 
@@ -16,7 +18,7 @@ from kyc_api_gateway.serializers.uat_driving_license_log_serializer import UatDr
 from kyc_api_gateway.serializers.uat_passport_log_serializer import UatPassportRequestLogSerializer
 from kyc_api_gateway.serializers.uat_address_log_serializer import UatAddressMatchRequestLogSerializer
 
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from auth_system.permissions.token_valid import IsTokenValid
 
 
@@ -33,19 +35,16 @@ SERIALIZER_MAP = {
 
 
 class ClientReportAPIView(APIView):
-    """
-    ✅ Clients can only view their own report.
-    Even if they send another client_id, it will be ignored.
-    """
-    permission_classes = [IsAuthenticated, IsTokenValid]
 
+    permission_classes = [IsAuthenticated, IsTokenValid]
+  
     def post(self, request):
         client_id = getattr(request.user, "id", None)
+        print("Authenticated client ID:", client_id)
         if not client_id:
             return Response({"success": False, "message": "Unauthorized client"}, status=401)
 
         print("Client ID from token:", client_id)
-
 
         request.data["client_id"] = client_id
 
@@ -56,10 +55,9 @@ class ClientReportAPIView(APIView):
             return Response({"success": False, "message": error}, status=400)
 
         queryset = queryset.filter(created_by=client_id)
-
+        print("Filtered queryset:", queryset)
         print(f"Queryset for service {service_name} and client {client_id} has {queryset.count()} records.")
 
-        
         if not queryset.exists():
             return Response({"success": False, "message": "No records found."}, status=404)
 
