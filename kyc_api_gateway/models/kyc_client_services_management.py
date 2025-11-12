@@ -12,7 +12,8 @@ class KycClientServicesManagement(models.Model):
         related_name="kyc_services",
         on_delete=models.CASCADE
     )
-
+    
+    uat_api_limit = models.CharField(default=100)
     status = models.BooleanField(default=True)
     day =  models.IntegerField(default=0)
     created_by = models.IntegerField()
