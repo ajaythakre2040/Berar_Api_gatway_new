@@ -45,7 +45,8 @@ from kyc_api_gateway.views.kyc_my_services_view import (
     KycMyServicesListCreate,
     KycMyServicesDetail,
     KycMyServicesNameList,
-    KycMyClientServicesListAll
+    KycMyClientServicesListAll,
+    KycAllServicesDetails
 )
 
 from kyc_api_gateway.views.kyc_client_services_management_view import (
@@ -138,6 +139,13 @@ urlpatterns = [
         KycMyClientServicesListAll.as_view(),
         name="kyc_my_client_services_all",
     ),
+     path(
+        "kyc_my_services_details/",
+        KycAllServicesDetails.as_view(),
+        name="kyc_my_client_services_all",
+    ),
+
+    
     path(
         "kyc_client_services/",
         KycClientServicesListCreate.as_view(),

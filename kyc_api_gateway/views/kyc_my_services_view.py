@@ -17,6 +17,7 @@ from client_auth.models.login_session import LoginSession
 from kyc_api_gateway.models import KycClientServicesManagement
 
 
+
 class KycMyServicesListCreate(APIView):
     permission_classes = [IsAuthenticated, IsTokenValid]
 
@@ -174,7 +175,8 @@ class KycMyServicesListAll(APIView):
 
 class KycMyClientServicesListAll(APIView):
     authentication_classes = [ClientJWTAuthentication]
-    # permission_classes = [AllowAny]
+
+    print("KycMyServicesListAll accessed")
     permission_classes = [AllowAny]  
 
     def get(self, request):
