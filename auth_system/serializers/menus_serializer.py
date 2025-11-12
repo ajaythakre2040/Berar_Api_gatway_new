@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
 from auth_system.models.menus import Menu
+from comman.utils.serielizer_input_sentizer import validate_and_sanitize
+from kyc_api_gateway.utils.sanitizer import sanitize_input
+from rest_framework.exceptions import ValidationError
 
 
 class MenuSerializer(serializers.ModelSerializer):
@@ -27,6 +30,11 @@ class MenuSerializer(serializers.ModelSerializer):
             "deleted_by",
             "deleted_at",
         )
+
+    def validate(self, attrs):
+       
+        attrs = validate_and_sanitize(attrs)  # Call the shared helper function
+        return attrs
 
     def validate_sort_id(self, value):
         if value is not None and value < 0:

@@ -7,7 +7,9 @@ import re
 from auth_system.models.role import Role
 from auth_system.models.role_permission import RolePermission
 from auth_system.serializers.role_permission_serializer import RolePermissionSerializer
-from django.contrib.auth.models import Permission  # Or your custom permission model
+from django.contrib.auth.models import Permission
+
+from comman.utils.serielizer_input_sentizer import validate_and_sanitize  
 
 class RoleWithOutPermissionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,7 +45,10 @@ class RoleSerializer(serializers.ModelSerializer):
     def get_permissions(self, obj):
         active_permissions = obj.permissions.filter(deleted_at__isnull=True)
         return RolePermissionSerializer(active_permissions, many=True).data
-
+    def validate(self, attrs):
+       
+        attrs = validate_and_sanitize(attrs)  
+        return attrs
     def validate_permission(self, value):
         seen = set()
         for item in value:
