@@ -437,6 +437,7 @@ class ClientResetPasswordView(APIView):
 
 
 class ClientAccountUnlockView(APIView):
+    authentication_classes = [ClientJWTAuthentication]
     permission_classes = [AllowAny]
     authentication_classes = [ClientJWTAuthentication]
 
@@ -512,7 +513,7 @@ class ClientChangePasswordView(APIView):
     def post(self, request):
 
         client = getattr(request, "client", None)
-
+        print(f" Client attempting password change: {client}")
         if not client:
             return Response(
                 {

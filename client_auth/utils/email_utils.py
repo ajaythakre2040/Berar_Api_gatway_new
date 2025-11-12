@@ -5,6 +5,7 @@ from datetime import datetime
 
 def send_reset_password_email(to_email, reset_link, user_name=None):
     print(f"✉️ Preparing to send password reset email to {to_email}")
+    
     subject = "Reset your Api Gatway account password"
     from_email = f"Api Gatway <{settings.DEFAULT_FROM_EMAIL}>"
     year = datetime.now().year

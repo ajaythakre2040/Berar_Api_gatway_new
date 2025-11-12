@@ -64,6 +64,7 @@ class TblUser(AbstractBaseUser, PermissionsMixin):
     status = models.IntegerField(default=0)
     timezone = models.CharField(max_length=255, default="UTC", blank=True, null=True)
     timeout = models.CharField(default="30", max_length=100)
+    
     department = models.ForeignKey(
         "auth_system.Department",
         on_delete=models.SET_NULL,
