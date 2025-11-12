@@ -3,16 +3,19 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.utils import timezone
+
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils.crypto import get_random_string
 from django.conf import settings
 from django.core.mail import send_mail
 from datetime import timedelta
+
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from auth_system.permissions.token_valid import IsTokenValid
+from client_auth.models.blacklisted_token import BlacklistedToken
 from client_auth.models.login_otp_verification import LoginOtpVerification
 from client_auth.permissions.authentication import ClientJWTAuthentication
 from client_auth.permissions.permissions import IsClientAuthenticated
@@ -60,6 +63,31 @@ def log_failed_attempt(username, ip, agent, reason):
         client_details=reason,
         created_at=timezone.now(),
     )
+
+
+def create_login_session(client, tokens, ip_address, user_agent, request):
+
+    access_token_expiry = getattr(settings, "SIMPLE_JWT", {}).get(
+        "ACCESS_TOKEN_LIFETIME", timedelta(hours=1)
+    )
+    refresh_token_expiry = getattr(settings, "SIMPLE_JWT", {}).get(
+        "REFRESH_TOKEN_LIFETIME", timedelta(days=1)
+    )
+
+    session = LoginSession.objects.create(
+        client=client,
+        token=tokens["access"],
+        refresh_token=tokens["refresh"],
+        is_active=True,
+        login_at=timezone.now(),
+        access_expiry_at=timezone.now() + access_token_expiry,
+        refresh_expiry_at=timezone.now() + refresh_token_expiry,
+        ip_address=ip_address,
+        agent_browser=user_agent,
+        request_headers=dict(request.headers),
+    )
+
+    return session
 
 
 class ClientLoginView(APIView):
@@ -120,16 +148,7 @@ class ClientLoginView(APIView):
 
         tokens = generate_tokens_for_client(client)
 
-        LoginSession.objects.create(
-            client_id=client.id,
-            token=tokens["access"],
-            is_active=True,
-            login_at=timezone.now(),
-            expiry_at=refresh_token_expiry_time(),
-            ip_address=ip,
-            agent_browser=agent,
-            request_headers=dict(request.headers),
-        )
+        session = create_login_session(client, tokens, ip, agent, request)
 
         return Response(
             {
@@ -206,16 +225,7 @@ class ClientTwoFactorVerifyView(APIView):
         tokens = generate_tokens_for_client(client)
 
         ip, agent = get_client_ip_and_agent(request)
-        LoginSession.objects.create(
-            client_id=client.id,
-            token=tokens["access"],
-            is_active=True,
-            login_at=timezone.now(),
-            expiry_at=refresh_token_expiry_time(),
-            ip_address=ip,
-            agent_browser=agent,
-            request_headers=dict(request.headers),
-        )
+        session = create_login_session(client, tokens, ip, agent, request)
 
         return Response(
             {
@@ -230,7 +240,6 @@ class ClientTwoFactorVerifyView(APIView):
 
 class ClientForgotPasswordView(APIView):
     permission_classes = [AllowAny]
-    # throttle_classes = [ForgotPasswordThrottle]
 
     def post(self, request):
         email = request.data.get("email")
@@ -430,6 +439,7 @@ class ClientResetPasswordView(APIView):
 class ClientAccountUnlockView(APIView):
     authentication_classes = [ClientJWTAuthentication]
     permission_classes = [AllowAny]
+    authentication_classes = [ClientJWTAuthentication]
 
     def post(self, request):
 
@@ -580,11 +590,13 @@ class ClientLogoutView(APIView):
     permission_classes = [IsClientAuthenticated]
 
     def post(self, request):
-
         client = getattr(request, "client", None)
         if not client:
             return Response(
-                {"success": False, "message": "Client authentication required."},
+                {
+                    "success": False,
+                    "message": "Authentication required. Please log in to proceed.",
+                },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -596,7 +608,7 @@ class ClientLogoutView(APIView):
             return Response(
                 {
                     "success": False,
-                    "message": "Both access and refresh tokens are required.",
+                    "message": "Both access token and refresh token are required for logout.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -607,16 +619,29 @@ class ClientLogoutView(APIView):
 
         if not session:
             return Response(
-                {"success": False, "message": "Active session not found."},
-                status=status.HTTP_404_NOT_FOUND,
+                {
+                    "success": False,
+                    "message": "Your session has already been logged out. Please log in again.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         if session.ip_address != ip or session.agent_browser != agent:
             return Response(
-                {"success": False, "message": "Device/IP mismatch detected."},
+                {
+                    "success": False,
+                    "message": "Device or IP address mismatch detected. Access denied.",
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
-
+        if BlacklistedToken.objects.filter(token=refresh_token).exists():
+            return Response(
+                {
+                    "success": False,
+                    "message": "The provided refresh token has been blacklisted.",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         session.is_active = False
         session.logout_at = timezone.now()
         session.save(update_fields=["is_active", "logout_at"])
@@ -625,6 +650,6 @@ class ClientLogoutView(APIView):
         blacklist_token(refresh_token, "refresh", client)
 
         return Response(
-            {"success": True, "message": "Logout successful."},
+            {"success": True, "message": "You have been successfully logged out."},
             status=status.HTTP_200_OK,
         )
