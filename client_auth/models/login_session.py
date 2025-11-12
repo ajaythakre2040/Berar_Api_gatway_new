@@ -8,7 +8,7 @@ class LoginSession(models.Model):
     token = models.CharField(max_length=1024, unique=True)
     refresh_token = models.CharField(
         max_length=1024, unique=True, null=True, blank=True
-    )  
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
     login_at = models.DateTimeField(default=timezone.now)
@@ -27,22 +27,38 @@ class LoginSession(models.Model):
         status = "Active" if self.is_active else "Logged out"
         return f"[{status}] Client: {self.client.company_name} ({self.ip_address or 'N/A'})"
 
-    def is_expired(self):
-        now = timezone.now()
+    @property
+    def expiry_at(self):
+        """
+        Returns the earliest expiry time between access and refresh token expiry.
+        If neither is available, returns None.
+        """
+        if self.access_expiry_at and self.refresh_expiry_at:
+            return min(self.access_expiry_at, self.refresh_expiry_at)
+        return self.access_expiry_at or self.refresh_expiry_at
 
-        if self.access_expiry_at and now > self.access_expiry_at:
-            return True
-        if self.refresh_expiry_at and now > self.refresh_expiry_at:
+    def is_expired(self):
+        """
+        Returns True if the session is expired based on either access or refresh token expiry.
+        """
+        now = timezone.now()
+        if self.expiry_at and now > self.expiry_at:
             return True
         return False
 
     def mark_as_inactive(self):
+        """
+        Marks the session as inactive if expired or explicitly logged out.
+        """
         if self.is_expired() or self.logout_at:
             self.is_active = False
             self.save()
 
     @classmethod
     def clean_up_expired_sessions(cls):
+        """
+        Cleans up expired sessions by marking them as inactive.
+        """
         expired_sessions = cls.objects.filter(is_active=True).filter(
             models.Q(access_expiry_at__lt=timezone.now())
             | models.Q(refresh_expiry_at__lt=timezone.now())
@@ -51,6 +67,10 @@ class LoginSession(models.Model):
             session.mark_as_inactive()
 
     def validate_ip_and_agent(self, ip, agent_browser):
+        """
+        Validates that the current session matches the given IP and browser agent.
+        Marks session as inactive if they don't match.
+        """
         if self.ip_address != ip or self.agent_browser != agent_browser:
             self.is_active = False
             self.save()
