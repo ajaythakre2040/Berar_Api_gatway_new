@@ -39,7 +39,7 @@ VENDOR_PASSPORT_SERVICE_ENDPOINTS = {
 
 VENDOR_ADDRESS_SERVICE_ENDPOINTS = {
     "karza": "v3/address",
-    "surepass": "api/v1/ai/parse-address",
+    # "surepass": "api/v1/ai/parse-address",
 }
 
 

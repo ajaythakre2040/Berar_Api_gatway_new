@@ -13,25 +13,15 @@ from kyc_api_gateway.serializers.uat_bill_details_serializer import UatElectrici
 from kyc_api_gateway.services.uat.bill_handler import call_vendor_api_uat, save_bill_data, normalize_vendor_response
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_bill_request_log import UatBillRequestLog
-import re
+
+from kyc_api_gateway.serializers.uat_bill_details_serializer import UatElectricityBillSerializer
+from kyc_api_gateway.utils.sanitizer import sanitize_input
 
 
 class UatBillDetailsAPIView(APIView):
     authentication_classes = []
     permission_classes = []
 
-    @staticmethod
-    def sanitize_input(value):
-        if not value:
-            return value
-        value = value.strip()
-
-        clean_value = re.sub(r"<.*?>", "", value)
-
-        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
-            raise ValueError("Invalid characters detected in input.")
-
-        return clean_value
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -44,9 +34,14 @@ class UatBillDetailsAPIView(APIView):
 
     def post(self, request):
 
+        client = self._authenticate_client(request)
+        if isinstance(client, Response):
+            return client
+        
         try:
-            consumer_id = self.sanitize_input(request.data.get("consumer_id"))
-            service_provider = self.sanitize_input(request.data.get("service_provider"))
+            consumer_id = sanitize_input(request.data.get("consumer_id"))
+            service_provider = sanitize_input(request.data.get("service_provider"))
+
         except ValueError as e:
             return Response({
                 "success": False,
@@ -66,31 +61,12 @@ class UatBillDetailsAPIView(APIView):
                 missing.append("service_provider")
             
             error_msg = f"Missing required fields: {', '.join(missing)}"
-            self._log_request(
-                customer_id=consumer_id,
-                service_provider=service_provider,
-                vendor_name=None,
-                endpoint=request.path,
-                status_code=400,
-                status="fail",
-                request_payload=request.data,
-                response_payload=None,
-                error_message=error_msg,
-                user=None,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                created_by=None
-            )
+           
             return Response({
                 "success": False,
                 "status": 400,
                 "error": error_msg
             }, status=400)
-
-
-        client = self._authenticate_client(request)
-        if isinstance(client, Response):
-            return client
 
         service_name = "BILL"
         service_id = KYC_MY_SERVICES.get(service_name.upper())
@@ -110,7 +86,7 @@ class UatBillDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=client.id
+                created_by=client.id if client else None,
 
             )
             return Response({
@@ -118,6 +94,7 @@ class UatBillDetailsAPIView(APIView):
                 "status": 403,
                 "error": f"{service_name} service not configured"
             }, status=403)
+        
 
         try:
             cache_days = self._get_cache_days(client, service_id)
@@ -136,7 +113,7 @@ class UatBillDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=client.id
+                created_by=client.id if client else None,
             )
 
             return Response({
@@ -159,7 +136,7 @@ class UatBillDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=client.id
+                created_by=client.id if client else None,
             )  
 
             return Response({
@@ -192,7 +169,7 @@ class UatBillDetailsAPIView(APIView):
                 bill_details=cached,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=client.id
+                created_by=client.id if client else None,
 
             )
 
@@ -222,7 +199,7 @@ class UatBillDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=client.id
+                created_by=client.id if client else None,
 
             )
             return Response({
@@ -256,7 +233,7 @@ class UatBillDetailsAPIView(APIView):
                             user=None,
                             ip_address=ip_address,
                             user_agent=user_agent,
-                            created_by=client.id
+                            created_by=client.id if client else None,
 
                         )
                         continue
@@ -280,7 +257,7 @@ class UatBillDetailsAPIView(APIView):
                         user=None,
                         ip_address=ip_address,
                         user_agent=user_agent,
-                        created_by=client.id
+                        created_by=client.id if client else None,
 
                     )
                     continue
@@ -360,7 +337,7 @@ class UatBillDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None
+                created_by=client.id if client else None,
 
             )
 
@@ -386,7 +363,7 @@ class UatBillDetailsAPIView(APIView):
                 user=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None
+                created_by=client.id if client else None,
 
             )
 
@@ -408,6 +385,16 @@ class UatBillDetailsAPIView(APIView):
 
         if cs.status is False:
             raise PermissionError(f"Service is not permitted for client")
+
+        success_count = UatBillRequestLog.objects.filter(
+            created_by=client.id,
+            status_code__in=["200", 200],
+            status__iexact="success" 
+        ).count()
+        
+        if success_count >= cs.uat_api_limit:
+           
+            raise PermissionError(f"UAT API limit exceeded")
 
         return cs.day
 

@@ -33,6 +33,7 @@ def build_passport_request_uat(vendor_name, request_data):
                     formatted_dob = dob_obj.strftime("%Y-%m-%d")
         except Exception as e:
             print(f"[WARN] DOB format invalid: {dob_input} ({e})")
+
     if vendor_key == "karza":
         return {
             "consent": request_data.get("consent", "y"),
@@ -43,11 +44,11 @@ def build_passport_request_uat(vendor_name, request_data):
             "name": request_data.get("name"),
             "clientData": request_data.get("clientData", {"caseId": "123456"}),
         }
-    elif vendor_key == "surepass":
-        return {
-            "id_number": request_data.get("file_number"),
-            "dob": formatted_dob or request_data.get("dob"),
-        }
+    # elif vendor_key == "surepass":
+    #     return {
+    #         "id_number": request_data.get("file_number"),
+    #         "dob": formatted_dob or request_data.get("dob"),
+    #     }
     return request_data
 
 
@@ -56,19 +57,23 @@ def call_vendor_api_uat(vendor, request_data):
     endpoint_path = VENDOR_PASSPORT_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
     if not endpoint_path or not base_url:
+
         print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
         return None
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
     payload = build_passport_request_uat(vendor_key, request_data)
     headers = {"Content-Type": "application/json"}
+
     if vendor_key == "karza":
         headers["x-karza-key"] = vendor.uat_api_key
-    elif vendor_key == "surepass":
-        headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"  # Bearer token
+    # elif vendor_key == "surepass":
+    #     headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}" 
+
     print("\n--- Calling Vendor UAT Name API ---")
     print("URL:", full_url)
     print("Headers:", headers)
     print("Payload:", payload)
+
     try:
         response = requests.post(full_url, json=payload, headers=headers)
         response.raise_for_status()
@@ -76,6 +81,7 @@ def call_vendor_api_uat(vendor, request_data):
         print("Status Code:", response.status_code)
         print("Response JSON:", response.json())
         return response.json()
+    
     except requests.HTTPError as e:
         try:
             error_content = response.json()
@@ -125,16 +131,19 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
             "application_type": result.get("application_type", ""),
             "status_text": status,
         }
+    
     elif vendor_name == "karza":
         print("\n--- Karza Raw Response ---")
         print(raw_data)
         result = raw_data.get("result", {})
         if not result:
             return {"error": "Missing or invalid 'data' in Karza response"}
+        
         full_name = result.get("full_name", "")
         surname = full_name.split()[-1] if full_name else None
         status = result.get("status", "")
         date_of_issue = extract_date_from_text(status) if status else None
+
         return {
             "client_id": result.get("client_id", ""),
             "request_id": raw_data.get("requestId", ""),
@@ -148,6 +157,7 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
             "application_type": result.get("application_type", ""),
             "status_text": status,
         }
+    
     return {"error": "Unknown vendor or response format"}
 
 

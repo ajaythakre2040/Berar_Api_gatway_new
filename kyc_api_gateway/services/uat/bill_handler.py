@@ -61,11 +61,6 @@ def call_vendor_api_uat(vendor, request_data):
     elif vendor_key == "surepass":
         headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
 
-    print("\n--- Calling Vendor UAT BILL API ---")
-    print("URL:", full_url)
-    print("Headers:", headers)
-    print("Payload:", payload)
-
     try:
         response = requests.post(full_url, json=payload, headers=headers)
         response.raise_for_status()

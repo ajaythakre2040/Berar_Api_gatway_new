@@ -28,9 +28,6 @@ def call_voter_vendor_api(vendor, request_data):
     endpoint_path = VENDOR_VOTER_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
 
-    print("vendor_key:", vendor_key)
-    print("endpoint_path:", endpoint_path)
-    print("base_url:", base_url)
 
     if not endpoint_path or not base_url:
         print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
@@ -44,11 +41,6 @@ def call_voter_vendor_api(vendor, request_data):
         headers["x-karza-key"] = vendor.uat_api_key
     elif vendor_key == "surepass":
         headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
-
-    print("\n--- Calling Vendor API ---")
-    print("URL:", full_url)
-    print("Headers:", headers)
-    print("Payload:", payload)
 
     try:
         response = requests.post(full_url, json=payload, headers=headers)
@@ -66,11 +58,6 @@ def call_voter_vendor_api(vendor, request_data):
         except Exception:
             error_content = response.text
 
-        print("\n--- Vendor API HTTPError ---")
-        print("Status Code:", response.status_code)
-        print("Error Message:", str(e))
-        print("Error Content:", error_content)
-
         return {
             "http_error": True,
             "status_code": response.status_code,
@@ -79,8 +66,6 @@ def call_voter_vendor_api(vendor, request_data):
         }
 
     except Exception as e:
-        print("\n--- Vendor API General Exception ---")
-        print("Error Message:", str(e))
 
         return {
             "http_error": True,

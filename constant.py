@@ -27,6 +27,7 @@ USER_STATUS = {
 }
 USER_STATUS_CHOICES = [(k, v) for k, v in USER_STATUS.items()]
 MAX_LOGIN_ATTEMPTS = 5
+
 KYC_MY_SERVICES = {
     "PAN": 1,
     "BILL": 2,
@@ -34,10 +35,21 @@ KYC_MY_SERVICES = {
     "NAME": 4,
     "RC": 5,
     "DRIVING": 6,
-    "PASSPORT": 7,
+    "PASSPORT": 8,
+    "ADDRESS": 9,
 }
 
 
+# KYC_MY_SERVICES = {
+#     "PAN": 1,
+#     "BILL": 2,
+#     "VOTER": 3,
+#     "NAME": 4,
+#     "RC": 5,
+#     "DRIVING": 6,
+#     "PASSPORT": 8,
+#     "ADDRESS": 9,
+# }
 class DeliveryStatus(models.IntegerChoices):
     PENDING = 1, "Pending"
     DELIVERED = 2, "Delivered"

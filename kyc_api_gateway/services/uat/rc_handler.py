@@ -92,7 +92,6 @@ def normalize_rc_response(vendor_name, raw_data):
     if not result:
         return None
 
-    # Common normalization for both vendors
     normalized = {
         "client_id": result.get("client_id"),
         "rc_number": result.get("rc_number") or result.get("registrationNumber"),

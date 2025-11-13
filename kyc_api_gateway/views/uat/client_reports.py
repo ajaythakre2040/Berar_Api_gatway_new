@@ -52,19 +52,16 @@ class ClientReportAPIView(APIView):
 
     def post(self, request):
         client = request.user
-        print("Authenticated client:", client)
         if not client or not getattr(client, "id", None):
             return Response(
                 {"success": False, "message": "Unauthorized client"}, status=401
             )
         client_id = client.id
-        print("Client ID from authenticated user:", client_id)
         active_session = (
             LoginSession.objects.filter(client_id=client_id, is_active=True)
             .order_by("-login_at")
             .first()
         )
-        print("Client ID from token:", client_id)
         if not active_session:
             return Response(
                 {
@@ -82,7 +79,6 @@ class ClientReportAPIView(APIView):
             )
         request.data["client_id"] = client_id
         queryset, service_name, error = get_filtered_queryset(request.data)
-        print("Filtered queryset obtained:", queryset)
         if error:
             return Response({"success": False, "message": error}, status=400)
         queryset = queryset.filter(created_by=client_id)
@@ -91,7 +87,6 @@ class ClientReportAPIView(APIView):
                 {"success": False, "message": "No records found."}, status=404
             )
         serializer_class = SERIALIZER_MAP.get(service_name)
-        print("Using serializer class:", serializer_class)
         if not serializer_class:
             return Response(
                 {"success": False, "message": f"No serializer for {service_name}"},

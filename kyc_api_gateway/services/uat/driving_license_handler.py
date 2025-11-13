@@ -45,41 +45,6 @@ def build_dl_request_uat(vendor_name, request_data):
     return None
 
 
-
-# def call_vendor_api_uat(vendor, request_data):
-    
-#     vendor_key = vendor.vendor_name.lower()
-#     endpoint_path = VENDOR_DRIVING_LICENSE_ENDPOINTS.get(vendor_key)
-
-#     if not endpoint_path:
-#         print(f"[ERROR] No endpoint found for vendor: {vendor.vendor_name}")
-#         return None
-
-#     base_url = vendor.end_point_uat
-#     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
-
-#     headers = {"Content-Type": "application/json"}
-#     if vendor_key == "karza":
-
-#         headers["x-karza-key"] = vendor.uat_key
-
-#     elif vendor_key == "surepass":
-#         headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
-
-#     payload = build_dl_request_uat(vendor_key, request_data)
-
-#     try:
-#         response = requests.post(full_url, json=payload, headers=headers, timeout=vendor.timeout or 30)
-
-#         # print(f"[INFO] {vendor.vendor_name} request sent to {full_url} with payload: {payload}")
-#         # print(f"[INFO] {vendor.vendor_name} response status: {response.status_code}, response body: {response.text}")
-#         # print(response.json())
-
-#         return response
-#     except Exception as e:
-#         print(f"[ERROR] {vendor.vendor_name} request failed: {str(e)}")
-#         return None
-
 def call_vendor_api_uat(vendor, request_data):
     vendor_key = vendor.vendor_name.lower()
     endpoint_path = VENDOR_DRIVING_LICENSE_ENDPOINTS.get(vendor_key)
@@ -112,10 +77,8 @@ def call_vendor_api_uat(vendor, request_data):
     payload = build_dl_request_uat(vendor_key, request_data)
 
     try:
-        # response = requests.post(full_url, json=payload, headers=headers, timeout=vendor.timeout or 30)
         response = requests.post(full_url, json=payload, headers=headers)
 
-        # ✅ Handle 4xx/5xx responses gracefully
         if response.status_code >= 400:
             try:
                 error_json = response.json()

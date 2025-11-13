@@ -215,7 +215,6 @@ def call_dynamic_vendor_api(url, request_data):
 
     try:
         response = requests.post(url, json=payload, headers=headers)
-        # print("response ", response)
         response.raise_for_status()
         try:
             return response.json()

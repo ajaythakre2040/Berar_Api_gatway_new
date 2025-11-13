@@ -15,7 +15,6 @@ def build_address_request(vendor_name, request_data):
     address1 = request_data.get("address1", "").strip()
     address2 = request_data.get("address2", "").strip()
 
-    # ✅ Karza needs both
     if vendor_key == "karza":
         return {
             "address1": address1,
@@ -109,14 +108,12 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
             "match_status": result.get("match"),
             "status_code": raw_data.get("statusCode"),
             "vendor_response": raw_data,
-            # Extract some normalized address details if needed
             "district": result.get("address1", {}).get("district"),
             "state": result.get("address1", {}).get("state"),
             "locality": result.get("address1", {}).get("locality"),
         }
 
-        # {'data': {'client_id': 'address_parser_DqfyuAHLtrWnPzmmcWgH', 'street': None, 'locality': None, 'city': 'NAGPUR', 'state': 'MAHARASHTRA', 'pincode': 'None'}, 'status_code': 200, 'success': True, 'message': 'Success', 'message_code': 'success'}
-
+       
     elif vendor_name == "surepass":
         data = raw_data.get("data", {})
         return {
@@ -150,7 +147,6 @@ def save_address_match(normalized, created_by):
         success=True,
         status_code=str(normalized.get("status_code", "")),
         message=normalized.get("message"),
-        # optional normalized address info
         house=normalized.get("house"),
         locality=normalized.get("locality"),
         street=normalized.get("street"),
