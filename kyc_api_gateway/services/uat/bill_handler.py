@@ -44,10 +44,6 @@ def call_vendor_api_uat(vendor, request_data):
     endpoint_path = VENDOR_BILL_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
 
-    print(f"vendor_key: {vendor_key}")
-    print(f"endpoint_path: {endpoint_path}")
-    print(f"base_url: {base_url}")
-
     if not endpoint_path or not base_url:
         print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
         return None
@@ -65,10 +61,6 @@ def call_vendor_api_uat(vendor, request_data):
         response = requests.post(full_url, json=payload, headers=headers)
         response.raise_for_status()
 
-        print("\n--- Vendor UAT BILL API Response ---")
-        print("Status Code:", response.status_code)
-        print("Response JSON:", response.json())
-
         return response.json()
 
     except requests.HTTPError as e:
@@ -76,11 +68,6 @@ def call_vendor_api_uat(vendor, request_data):
             error_content = response.json()
         except Exception:
             error_content = response.text
-
-        print("\n--- Vendor UAT BILL API HTTPError ---")
-        print("Status Code:", response.status_code)
-        print("Error Message:", str(e))
-        print("Error Content:", error_content)
 
         return {
             "http_error": True,
@@ -90,8 +77,6 @@ def call_vendor_api_uat(vendor, request_data):
         }
 
     except Exception as e:
-        print("\n--- Vendor UAT BILL API General Exception ---")
-        print("Error Message:", str(e))
 
         return {
             "http_error": True,

@@ -8,8 +8,7 @@ from kyc_api_gateway.models.client_management import ClientManagement
 from kyc_api_gateway.serializers.client_management_serializer import (
     ClientManagementSerializer,
 )
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from auth_system.permissions.token_valid import IsTokenValid
+from rest_framework.permissions import  AllowAny
 from kyc_api_gateway.models.api_management import ApiManagement
 from auth_system.utils.pagination import CustomPagination
 from django.db.models import Q

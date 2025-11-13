@@ -1,4 +1,3 @@
-from django.db import models
 VENDOR_SERVICE_ENDPOINTS = {
     "karza": "v3/pan-profile",
     "surepass": "api/v1/pan/pan-comprehensive",
@@ -8,7 +7,6 @@ VENDOR_BILL_SERVICE_ENDPOINTS = {
     "karza": "v2/elec",
     "surepass": "api/v1/utility/electricity/",
 }
-
 
 VENDOR_NAME_SERVICE_ENDPOINTS = {
     "karza": "v3/name",
@@ -21,7 +19,6 @@ VENDOR_VOTER_SERVICE_ENDPOINTS = {
 }
 
 VENDOR_RC_SERVICE_ENDPOINTS = {
-    
     "karza": "v3/rc-advanced",
     "surepass": "/api/v1/rc/rc-full",
 }
@@ -39,8 +36,7 @@ VENDOR_PASSPORT_SERVICE_ENDPOINTS = {
 
 VENDOR_ADDRESS_SERVICE_ENDPOINTS = {
     "karza": "v3/address",
-    # "surepass": "api/v1/ai/parse-address",
+    "internal": "custom-address-match/",
 }
-
 
 DEFAULT_COUNTRY = "India"

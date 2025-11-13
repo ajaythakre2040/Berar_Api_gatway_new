@@ -1,11 +1,8 @@
 import requests
 from decouple import config
-from auth_system.models.user import TblUser
-from kyc_api_gateway.models import UatPassportDetails
 from kyc_api_gateway.utils.constants import (
     VENDOR_PASSPORT_SERVICE_ENDPOINTS,
-)  # new constant mapping like name
-from decimal import Decimal
+)  
 import re
 from datetime import datetime
 
@@ -13,90 +10,105 @@ SUREPASS_TOKEN = config("SUREPASS_TOKEN", default=None)
 if not SUREPASS_TOKEN:
     raise ValueError("SUREPASS_TOKEN is not set in your environment variables.")
 
+from datetime import datetime
 
 def build_passport_request_uat(vendor_name, request_data):
     vendor_key = vendor_name.lower()
     dob_input = request_data.get("dob")
-    formatted_dob = None
-    if dob_input:
-        try:
-            if "-" in dob_input:
-                dob_obj = datetime.strptime(dob_input, "%Y-%m-%d")
-            elif "/" in dob_input:
-                dob_obj = datetime.strptime(dob_input, "%d/%m/%Y")
-            else:
-                dob_obj = None
-            if dob_obj:
-                if vendor_key == "karza":
-                    formatted_dob = dob_obj.strftime("%d/%m/%Y")
-                elif vendor_key == "surepass":
-                    formatted_dob = dob_obj.strftime("%Y-%m-%d")
-        except Exception as e:
-            print(f"[WARN] DOB format invalid: {dob_input} ({e})")
 
+    dob_obj = None
+    if dob_input:
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                dob_obj = datetime.strptime(dob_input, fmt)
+                break
+            except ValueError:
+                continue
+
+    formatted_dob_karza = dob_obj.strftime("%d/%m/%Y") if dob_obj else dob_input
+    formatted_dob_surepass = dob_obj.strftime("%Y-%m-%d") if dob_obj else dob_input
+
+    # --- Karza Vendor ---
     if vendor_key == "karza":
-        return {
+        payload = {
             "consent": request_data.get("consent", "y"),
-            "fileNo": request_data.get("file_number"),
-            "dob": formatted_dob or request_data.get("dob"),
-            "passportNo": request_data.get("passportNo"),
-            "doi": request_data.get("doi"),
-            "name": request_data.get("name"),
+            "fileNo": request_data.get("fileNo") or request_data.get("file_number"),
+            "dob": formatted_dob_karza,
             "clientData": request_data.get("clientData", {"caseId": "123456"}),
         }
-    # elif vendor_key == "surepass":
-    #     return {
-    #         "id_number": request_data.get("file_number"),
-    #         "dob": formatted_dob or request_data.get("dob"),
-    #     }
-    return request_data
 
+        for key in ["passportNo", "doi", "name"]:
+            if request_data.get(key):
+                payload[key] = request_data[key]
+
+        return payload
+
+    elif vendor_key == "surepass":
+        return {
+            "id_number": request_data.get("file_number"),
+            "dob": formatted_dob_surepass, 
+        }
+
+    return request_data
 
 def call_vendor_api_uat(vendor, request_data):
     vendor_key = vendor.vendor_name.lower()
     endpoint_path = VENDOR_PASSPORT_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
-    if not endpoint_path or not base_url:
 
+    if not endpoint_path or not base_url:
         print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
-        return None
+        return {
+            "http_error": True,
+            "error_message": f"Vendor '{vendor.vendor_name}' not configured properly."
+        }
+
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
     payload = build_passport_request_uat(vendor_key, request_data)
-    headers = {"Content-Type": "application/json"}
 
+    headers = {"Content-Type": "application/json"}
     if vendor_key == "karza":
         headers["x-karza-key"] = vendor.uat_api_key
-    # elif vendor_key == "surepass":
-    #     headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}" 
+    elif vendor_key == "surepass" and SUREPASS_TOKEN:
+        headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
 
-    print("\n--- Calling Vendor UAT Name API ---")
+    print("\n--- Calling Vendor UAT Passport API ---")
     print("URL:", full_url)
     print("Headers:", headers)
     print("Payload:", payload)
 
     try:
-        response = requests.post(full_url, json=payload, headers=headers)
-        response.raise_for_status()
-        print("\n--- Vendor UAT Name API Response ---")
+        response = requests.post(full_url, json=payload, headers=headers, timeout=20)
+        response.raise_for_status() 
+
+        print("\n--- Vendor API Response ---")
         print("Status Code:", response.status_code)
         print("Response JSON:", response.json())
         return response.json()
-    
-    except requests.HTTPError as e:
+
+    except requests.exceptions.Timeout:
+        print("[ERROR] Vendor API Timeout.")
+        return {
+            "http_error": True,
+            "error_message": "Vendor API request timed out."
+        }
+
+    except requests.exceptions.HTTPError as e:
         try:
             error_content = response.json()
         except Exception:
             error_content = response.text
-        print("Error Message:", str(e))
-        # print("Error Content:", error_content)
+
+        print("[ERROR] Vendor API returned HTTP error:", e)
         return {
             "http_error": True,
             "status_code": response.status_code,
             "vendor_response": error_content,
             "error_message": str(e),
         }
+
     except Exception as e:
-        print("Error Message:", str(e))
+        print("[ERROR] Unexpected exception:", str(e))
         return {
             "http_error": True,
             "status_code": None,
@@ -105,44 +117,27 @@ def call_vendor_api_uat(vendor, request_data):
         }
 
 
+from datetime import datetime
+import re
+
 def normalize_vendor_response(vendor_name, raw_data, request_data):
     vendor_name = vendor_name.lower()
-    # print("\n--- Normalizing Vendor Response ---")
-    # print("Vendor Name:", vendor_name)
-    # print("Raw Data:", raw_data)
+
     if vendor_name == "surepass":
         result = raw_data.get("data", {})
         if not result:
             return {"error": "Missing or invalid 'data' in Surepass response"}
+
         full_name = result.get("full_name", "")
         surname = full_name.split()[-1] if full_name else None
         status = result.get("status", "")
         date_of_issue = extract_date_from_text(status) if status else None
-        return {
-            "client_id": result.get("client_id", ""),
-            "request_id": raw_data.get("requestId", ""),
-            "passport_number": result.get("passport_number", ""),
-            "file_number": result.get("file_number", ""),
-            "full_name": full_name,
-            "surname": surname,
-            "dob": result.get("dob", ""),
-            "date_of_application": result.get("date_of_application", ""),
-            "date_of_issue": date_of_issue,
-            "application_type": result.get("application_type", ""),
-            "status_text": status,
-        }
-    
-    elif vendor_name == "karza":
-        print("\n--- Karza Raw Response ---")
-        print(raw_data)
-        result = raw_data.get("result", {})
-        if not result:
-            return {"error": "Missing or invalid 'data' in Karza response"}
-        
-        full_name = result.get("full_name", "")
-        surname = full_name.split()[-1] if full_name else None
-        status = result.get("status", "")
-        date_of_issue = extract_date_from_text(status) if status else None
+
+        if date_of_issue:
+            try:
+                date_of_issue = datetime.strptime(date_of_issue, "%d/%m/%Y").strftime("%Y-%m-%d")
+            except ValueError:
+                date_of_issue = None
 
         return {
             "client_id": result.get("client_id", ""),
@@ -153,47 +148,61 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
             "surname": surname,
             "dob": result.get("dob", ""),
             "date_of_application": result.get("date_of_application", ""),
-            "date_of_issue": date_of_issue,
+            "date_of_issue": date_of_issue, 
             "application_type": result.get("application_type", ""),
             "status_text": status,
         }
-    
+
+    elif vendor_name == "karza":
+        result = raw_data.get("result", {})
+        if not result:
+            return {"error": "Missing or invalid 'data' in Karza response"}
+
+        name_data = result.get("name", {})
+        passport_data = result.get("passportNumber", {})
+        issue_data = result.get("dateOfIssue", {})
+
+        def safe_convert(date_str):
+            if not date_str:
+                return None
+            try:
+                return datetime.strptime(date_str, "%d/%m/%Y").strftime("%Y-%m-%d")
+            except ValueError:
+                return None
+
+        return {
+            "client_id": raw_data.get("clientData", {}).get("caseId", ""),
+            "request_id": raw_data.get("requestId", ""),
+            "passport_number": passport_data.get("passportNumberFromSource", ""),
+            "file_number": request_data.get("file_number", ""),
+            "full_name": name_data.get("nameFromPassport", ""),
+            "surname": name_data.get("surnameFromPassport", ""),
+            "dob": safe_convert(request_data.get("dob")),
+            "date_of_application": safe_convert(result.get("applicationDate")),
+            "date_of_issue": safe_convert(issue_data.get("dispatchedOnFromSource")),
+            "application_type": result.get("typeOfApplication", ""),
+            "status_text": str(raw_data.get("statusCode", "")),
+        }
+
     return {"error": "Unknown vendor or response format"}
 
 
 def extract_date_from_text(text):
-    """Extract dispatched date from text like 'dispatched on 26/09/2024'"""
     if not text:
         return None
     match = re.search(r"(\d{2}/\d{2}/\d{4})", text)
     return match.group(1) if match else None
 
 
-def convert_date_format_to_ddmmyyyy(date_str):
-    try:
-        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-        return date_obj.strftime("%d/%m/%Y")
-    except ValueError:
-        raise ValueError(
-            f"Invalid date format: {date_str}. It should be in YYYY-MM-DD format."
-        )
-
-
-def convert_to_yyyy_mm_dd(date_str):
-    try:
-        date_obj = datetime.strptime(date_str, "%d/%m/%Y")
-        return date_obj.strftime("%Y-%m-%d")
-    except ValueError:
-        raise ValueError(
-            f"Invalid date format: {date_str}. It should be in DD/MM/YYYY format."
-        )
-
+def extract_date_from_text(text):
+    if not text:
+        return None
+    match = re.search(r"(\d{2}/\d{2}/\d{4})", text)
+    return match.group(1) if match else None
 
 def save_verification(normalized):
-    print("\n--- Saving UAT Passport Details ---")
-    print("Normalized Data:", normalized)
+  
     from kyc_api_gateway.models import UatPassportDetails
-
     if "error" in normalized:
         raise ValueError(normalized["error"])
     passport = UatPassportDetails.objects.create(
@@ -204,7 +213,7 @@ def save_verification(normalized):
         full_name=normalized.get("full_name"),
         surname=normalized.get("surname"),
         dob=normalized.get("dob"),
-        date_of_issue=normalized.get("date_of_issue"),  # None is fine
+        date_of_issue=normalized.get("date_of_issue"),  
         date_of_application=normalized.get("date_of_application"),
         application_type=normalized.get("application_type"),
         status_text=normalized.get("status_text"),
@@ -213,6 +222,7 @@ def save_verification(normalized):
 
 
 def call_dynamic_vendor_api(url, request_data):
+
     headers = {"Content-Type": "application/json"}
     vendor_name = request_data.get("vendor")
     header_key_name = request_data.get("header_key_name")

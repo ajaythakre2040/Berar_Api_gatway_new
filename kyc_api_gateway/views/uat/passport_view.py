@@ -64,8 +64,6 @@ class UatPassportView(APIView):
                 {"success": False, "status": 400, "error": error_msg}, status=400
             )
         
-       
-        
         service_name = "PASSPORT"
         service_id = KYC_MY_SERVICES.get(service_name.upper())
         if not service_id:
@@ -138,8 +136,11 @@ class UatPassportView(APIView):
         file_number = request.data.get("file_number").strip()
         dob = request.data.get("dob").strip()
 
+
         cached = UatPassportDetails.objects.filter(
-            file_number__iexact=file_number, dob__iexact=dob, created_at__gte=days_ago
+            file_number__iexact=file_number,
+            # dob=dob,  # exact date match
+            created_at__gte=days_ago
         ).first()
 
         if cached:

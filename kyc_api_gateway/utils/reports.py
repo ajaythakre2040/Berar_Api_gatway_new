@@ -1,7 +1,6 @@
-# kyc_api_gateway/utils/reports.py
-
 from django.utils.dateparse import parse_date
 from constant import KYC_MY_SERVICES
+
 from kyc_api_gateway.models import (
     UatPanRequestLog, UatBillRequestLog, UatVoterRequestLog,
     UatNameMatchRequestLog, UatRcRequestLog,

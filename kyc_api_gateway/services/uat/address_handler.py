@@ -9,6 +9,27 @@ if not SUREPASS_TOKEN:
     raise ValueError("SUREPASS_TOKEN is not set in your environment variables.")
 
 
+# def build_address_request(vendor_name, request_data):
+#     vendor_key = vendor_name.lower()
+
+#     address1 = request_data.get("address1", "").strip()
+#     address2 = request_data.get("address2", "").strip()
+
+#     if vendor_key == "karza":
+#         return {
+#             "address1": address1,
+#             "address2": address2,
+#             "clientData": {"caseId": request_data.get("case_id", "123456")},
+#         }
+
+#     elif vendor_key == "surepass":
+#         full_address = address1
+#         if address2:
+#             full_address = f"{address1} {address2}".strip()
+
+#         return {"address": full_address}
+
+#     return request_data
 def build_address_request(vendor_name, request_data):
     vendor_key = vendor_name.lower()
 
@@ -22,11 +43,17 @@ def build_address_request(vendor_name, request_data):
             "clientData": {"caseId": request_data.get("case_id", "123456")},
         }
 
+    elif vendor_key == "internal":   
+        return {
+            "address1": address1,
+            "address2": address2,
+            "client_id": request_data.get("client_id"),
+        }
+
     elif vendor_key == "surepass":
         full_address = address1
         if address2:
             full_address = f"{address1} {address2}".strip()
-
         return {"address": full_address}
 
     return request_data
@@ -47,8 +74,9 @@ def call_vendor_api(vendor, request_data):
     headers = {"Content-Type": "application/json"}
     if vendor_key == "karza":
         headers["x-karza-key"] = vendor.uat_api_key
-    elif vendor_key == "surepass":
-        headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
+    elif vendor_key == "internal":
+        headers = {"Content-Type": "application/json"}
+
 
     print("\n--- Calling Vendor Address API ---")
     print("URL:", full_url)
@@ -114,24 +142,22 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
         }
 
        
-    elif vendor_name == "surepass":
-        data = raw_data.get("data", {})
+    elif vendor_name == "internal":
         return {
-            "vendor_name": "Surepass",
-            "client_id": data.get("client_id"),
-            "request_id": None,
+            "client_id": raw_data.get("client_id"),
+            "request_id": raw_data.get("request_id"),
             "address1": request_data.get("address1") if request_data else None,
             "address2": request_data.get("address2") if request_data else None,
-            "match_score": data.get("match_score"),
-            "match_status": data.get("match_status"),
+            "match_score": raw_data.get("score"),
+            "match_status": raw_data.get("match"),
             "status_code": raw_data.get("status_code"),
-            "street": data.get("street"),
-            "locality": data.get("locality"),
-            "city": data.get("city"),
-            "state": data.get("state"),
-            "pincode": data.get("pincode"),
             "vendor_response": raw_data,
+            "district": raw_data.get("district"),
+            "state": raw_data.get("state"),
+            "locality": raw_data.get("locality"),
+            "pincode": raw_data.get("pincode"),
         }
+
 
     return None
 

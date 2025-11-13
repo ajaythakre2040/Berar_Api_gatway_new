@@ -333,7 +333,6 @@ class AddressMatchUatAPIView(APIView):
                     created_by=client.id,
 
                 )
-                
                 continue
             
         return Response({
@@ -420,7 +419,6 @@ class AddressMatchUatAPIView(APIView):
 
         if cs.status is False:
             raise PermissionError(f"Service is not permitted for client")
-
 
         success_count = UatAddressMatchRequestLog.objects.filter(
             created_by=client.id,

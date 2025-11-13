@@ -8,8 +8,8 @@ ADMIN_USER = {
     "username": "admin",
     "password": "Admin@123",
     "position": "System Admin",
-    "role_id": 1,  # Role will be created and assigned if missing
-    "department_id": 1,  # Optional, safe to skip
+    "role_id": 1,  
+    "department_id": 1,
 }
 # Status codes as integers
 STATUS_ACTIVE = 1
