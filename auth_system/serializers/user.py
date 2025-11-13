@@ -1,6 +1,7 @@
 import re
 from rest_framework import serializers
 from auth_system.models.user import TblUser
+from comman.utils.serielizer_input_sentizer import validate_and_sanitize
 
 
 class TblUserSerializer(serializers.ModelSerializer):
@@ -60,7 +61,11 @@ class TblUserSerializer(serializers.ModelSerializer):
         if obj.role_id:
             return obj.role_id.permissions.filter(deleted_at__isnull=True).count()
         return 0
-
+    
+    def validate(self, attrs):
+        attrs = validate_and_sanitize(attrs)  # Call the shared helper function
+        return attrs
+    
     def create(self, validated_data):
         password = validated_data.pop("password")
         user = TblUser.objects.create_user(password=password, **validated_data)
