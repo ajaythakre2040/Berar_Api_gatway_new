@@ -34,6 +34,7 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from auth_system.utils.common import validate_password
+from comman.utils.sanitizer import sanitize_input
 from constant import MAX_LOGIN_ATTEMPTS
 import re
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
@@ -69,10 +70,21 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        identifier = request.data.get("username")
-        password = request.data.get("password")
+        try:
+            identifier = sanitize_input(request.data.get("username"))
+            password = sanitize_input(request.data.get("password"))
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
         ip, agent = get_client_ip_and_agent(request)
-
         if not identifier or not password:
             return Response(
                 {
@@ -82,7 +94,6 @@ class LoginView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         user = get_user_by_identifier(identifier)
         if not user:
             log_failed_attempt(identifier, ip, agent, {"reason": "User not found"})
@@ -94,7 +105,6 @@ class LoginView(APIView):
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
-
         if user.login_attempts >= MAX_LOGIN_ATTEMPTS:
             return Response(
                 {
@@ -104,7 +114,6 @@ class LoginView(APIView):
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
-
         if not user.check_password(password):
             user.login_attempts += 1
             user.save()
@@ -125,7 +134,6 @@ class LoginView(APIView):
                 },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-
         if not user.is_active:
             return Response(
                 {
@@ -135,13 +143,10 @@ class LoginView(APIView):
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
-
         user.login_attempts = 0
         user.is_login = True
         user.save()
-
         tokens = generate_tokens_for_user(user)
-
         LoginSession.objects.create(
             user=user,
             token=tokens["access"],
@@ -152,7 +157,6 @@ class LoginView(APIView):
             agent_browser=agent,
             request_headers=dict(request.headers),
         )
-
         return Response(
             {
                 "success": True,
@@ -169,9 +173,20 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        refresh_token = request.data.get("refresh")
+        try:
+            refresh_token = sanitize_input(request.data.get("refresh"))
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
         auth_header = request.headers.get("Authorization")
-
         if (
             not refresh_token
             or not auth_header
@@ -185,10 +200,8 @@ class LogoutView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         access_token = auth_header.split(" ")[1]
         ip, agent = get_client_ip_and_agent(request)
-
         try:
             session = LoginSession.objects.filter(
                 token=access_token, is_active=True
@@ -202,7 +215,6 @@ class LogoutView(APIView):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
             if session.ip_address != ip or session.agent_browser != agent:
                 return Response(
                     {
@@ -212,18 +224,14 @@ class LogoutView(APIView):
                     },
                     status=status.HTTP_403_FORBIDDEN,
                 )
-
             session.is_active = False
             session.logout_at = timezone.now()
             session.save()
-
             blacklist_token(refresh_token, token_type="refresh", user=request.user)
             blacklist_token(access_token, token_type="access", user=request.user)
-
             user = request.user
             user.is_login = False
             user.save(update_fields=["is_login"])
-
             return Response(
                 {
                     "success": True,
@@ -232,7 +240,6 @@ class LogoutView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
-
         except Exception as exc:
             return Response(
                 {
@@ -250,14 +257,24 @@ class ForgotPasswordView(APIView):
     throttle_classes = [ForgotPasswordThrottle]
 
     def post(self, request):
-        email = request.data.get("email")
-
+        try:
+            email = sanitize_input(request.data.get("email"))
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
         if not email:
             return Response(
                 {"success": False, "message": "Email is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         try:
             validate_email(email)
             email = email.lower().strip()
@@ -266,14 +283,11 @@ class ForgotPasswordView(APIView):
                 {"success": False, "message": "Invalid email address."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         ip = request.META.get("REMOTE_ADDR", "")
         user_agent = request.headers.get("User-Agent", "")
-
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-
             return Response(
                 {
                     "success": True,
@@ -281,13 +295,10 @@ class ForgotPasswordView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
-
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = token_generator.make_token(user)
         reset_link = f"{settings.FRONTEND_RESET_PASSWORD_URL}?uid={uid}&token={token}"
-
         expires_at = timezone.now() + timedelta(hours=1)
-
         ForgotPassword.objects.create(
             user=user,
             token=token,
@@ -295,7 +306,6 @@ class ForgotPasswordView(APIView):
             user_agent=user_agent,
             expires_at=expires_at,
         )
-
         try:
             send_reset_password_email(email, reset_link, user_name=user.first_name)
             return Response(
@@ -317,13 +327,23 @@ class ResetPasswordConfirmView(APIView):
     throttle_classes = [ForgotPasswordThrottle]
 
     def post(self, request):
-
-        uidb64 = request.data.get("uid")
-        token = request.data.get("token")
-        new_password = request.data.get("new_password")
-        confirm_password = request.data.get("confirm_password")
+        try:
+            uidb64 = sanitize_input(request.data.get("uid"))
+            token = sanitize_input(request.data.get("token"))
+            new_password = sanitize_input(request.data.get("new_password"))
+            confirm_password = sanitize_input(request.data.get("confirm_password"))
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
         ip, user_agent = get_client_ip_and_agent(request)
-
         missing_fields = []
         if not uidb64:
             missing_fields.append("uid")
@@ -333,7 +353,6 @@ class ResetPasswordConfirmView(APIView):
             missing_fields.append("new_password")
         if not confirm_password:
             missing_fields.append("confirm_password")
-
         if missing_fields:
             return Response(
                 {
@@ -342,7 +361,6 @@ class ResetPasswordConfirmView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         if new_password != confirm_password:
             return Response(
                 {
@@ -351,7 +369,6 @@ class ResetPasswordConfirmView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         try:
             validate_password(new_password)
         except ValidationError as e:
@@ -363,7 +380,6 @@ class ResetPasswordConfirmView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(pk=uid)
@@ -372,7 +388,6 @@ class ResetPasswordConfirmView(APIView):
                 {"success": False, "message": "Invalid or expired reset link."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         try:
             reset_entry = (
                 ForgotPassword.objects.filter(user=user).order_by("-created_at").first()
@@ -382,31 +397,26 @@ class ResetPasswordConfirmView(APIView):
                 {"success": False, "message": "Error while fetching reset entry."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
         if not reset_entry:
             return Response(
                 {"success": False, "message": "No reset request found."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         if reset_entry.token != token:
             return Response(
                 {"success": False, "message": "Invalid or expired token."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         if reset_entry.ip_address != ip or reset_entry.user_agent != user_agent:
             return Response(
                 {"success": False, "message": "IP address or user agent mismatch."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         if reset_entry.is_expired():
             return Response(
                 {"success": False, "message": "Token has expired."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         try:
             user.set_password(new_password)
             user.save()
@@ -415,7 +425,6 @@ class ResetPasswordConfirmView(APIView):
                 {"success": False, "message": "Failed to reset password."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
         try:
             PasswordResetLog.objects.create(
                 user=user,
@@ -431,7 +440,6 @@ class ResetPasswordConfirmView(APIView):
                 {"success": False, "message": "Failed to log password reset."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
         try:
             reset_entry.delete()
         except Exception:
@@ -439,7 +447,6 @@ class ResetPasswordConfirmView(APIView):
                 {"success": False, "message": "Failed to delete reset entry."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
         return Response(
             {"success": True, "message": "Password reset successfully."},
             status=status.HTTP_200_OK,
@@ -451,11 +458,22 @@ class ChangePasswordView(APIView):
     throttle_classes = [ChangePasswordThrottle]
 
     def post(self, request):
+        try:
+            old_password = sanitize_input(request.data.get("old_password"))
+            new_password = sanitize_input(request.data.get("new_password"))
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
         user = request.user
-        old_password = request.data.get("old_password")
-        new_password = request.data.get("new_password")
         ip, user_agent = get_client_ip_and_agent(request)
-
         if not old_password:
             return Response(
                 {"success": False, "message": "Old password is required."},
@@ -466,7 +484,6 @@ class ChangePasswordView(APIView):
                 {"success": False, "message": "New password is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         if not user.check_password(old_password):
             PasswordResetLog.objects.create(
                 user=user,
@@ -481,7 +498,6 @@ class ChangePasswordView(APIView):
                 {"success": False, "message": "Old password is incorrect."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         try:
             validate_password(new_password)
         except ValidationError as e:
@@ -493,7 +509,6 @@ class ChangePasswordView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         if old_password == new_password:
             return Response(
                 {
@@ -502,10 +517,8 @@ class ChangePasswordView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         user.set_password(new_password)
         user.save()
-
         PasswordResetLog.objects.create(
             user=user,
             email=user.email,
@@ -515,7 +528,6 @@ class ChangePasswordView(APIView):
             successful=True,
             details="Password changed successfully",
         )
-
         return Response(
             {"success": True, "message": "Password changed successfully."},
             status=status.HTTP_200_OK,
@@ -526,24 +538,32 @@ class AccountUnlockView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        data = request.data
-        identifier = data.get("username", "").strip()
-        first = data.get("first_name", "").strip()
-        last = data.get("last_name", "").strip()
-        mobile = data.get("mobile_number", "").strip()
-
+        try:
+            data = request.data
+            identifier = sanitize_input(data.get("username", "")).strip()
+            first = sanitize_input(data.get("first_name", "")).strip()
+            last = sanitize_input(data.get("last_name", "")).strip()
+            mobile = sanitize_input(data.get("mobile_number", "")).strip()
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
         if not all([identifier, first, last, mobile]):
             return Response({"message": "All fields are required."}, status=400)
-
         ip, user_agent = get_client_ip_and_agent(request)
-
         user = TblUser.objects.filter(
             Q(email__iexact=identifier) | Q(username__iexact=identifier),
             first_name__iexact=first,
             last_name__iexact=last,
             mobile_number=mobile,
         ).first()
-
         if not user:
             AccountUnlockLog.objects.create(
                 unlocked_by=request.user if request.user.is_authenticated else None,
@@ -557,7 +577,6 @@ class AccountUnlockView(APIView):
             return Response(
                 {"message": "Details did not match. Account not unlocked."}, status=400
             )
-
         if user.login_attempts < 5:
             return Response(
                 {
@@ -565,14 +584,10 @@ class AccountUnlockView(APIView):
                 },
                 status=200,
             )
-
         if request.user.is_authenticated:
-
             if request.user == user:
-
                 method = "self"
                 unlocked_by = request.user
-
             elif request.user.role_id.type == "System":
                 method = "admin"
                 unlocked_by = request.user
@@ -581,11 +596,9 @@ class AccountUnlockView(APIView):
                     {"message": "You do not have permission to unlock this account."},
                     status=403,
                 )
-
             user.login_attempts = 0
             user.is_active = True
             user.save(update_fields=["login_attempts", "is_active"])
-
             log = AccountUnlockLog.objects.create(
                 unlocked_by=unlocked_by,
                 unlocked_user=user,
@@ -595,22 +608,18 @@ class AccountUnlockView(APIView):
                 details=f"Account of {user.full_name} unlocked successfully.",
                 success=True,
             )
-
             serializer = AccountUnlockLogSerializer(log)
             return Response(
                 {"message": "Account unlocked successfully.", "log": serializer.data},
                 status=200,
             )
-
         elif not request.user.is_authenticated:
             if user and identifier == data.get("username"):
                 method = "self"
                 unlocked_by = user
-
                 user.login_attempts = 0
                 user.is_active = True
                 user.save(update_fields=["login_attempts", "is_active"])
-
                 log = AccountUnlockLog.objects.create(
                     unlocked_by=unlocked_by,
                     unlocked_user=user,
@@ -620,7 +629,6 @@ class AccountUnlockView(APIView):
                     details=f"Account of {user.full_name} unlocked successfully.",
                     success=True,
                 )
-
                 serializer = AccountUnlockLogSerializer(log)
                 return Response(
                     {
@@ -634,7 +642,8 @@ class AccountUnlockView(APIView):
                     {"message": "Invalid account details or unauthorized access."},
                     status=400,
                 )
-
         return Response(
             {"message": "Authentication required to unlock account."}, status=401
         )
+
+

@@ -20,9 +20,6 @@ def generate_tokens_for_client(client):
         "REFRESH_TOKEN_LIFETIME", timedelta(days=1)
     )
 
-    print(f"Access Token Expiry: {access_lifetime}")
-    print(f"Refresh Token Expiry: {refresh_lifetime}")
-
     access_expiry = make_aware(datetime.utcnow()) + access_lifetime
     refresh_expiry = make_aware(datetime.utcnow()) + refresh_lifetime
 
