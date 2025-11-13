@@ -45,10 +45,11 @@ class RoleSerializer(serializers.ModelSerializer):
     def get_permissions(self, obj):
         active_permissions = obj.permissions.filter(deleted_at__isnull=True)
         return RolePermissionSerializer(active_permissions, many=True).data
+    
     def validate(self, attrs):
-       
         attrs = validate_and_sanitize(attrs)  
         return attrs
+    
     def validate_permission(self, value):
         seen = set()
         for item in value:
