@@ -16,4 +16,3 @@ def sanitize_input(value):
 
     return clean_value
 
-# hello world
