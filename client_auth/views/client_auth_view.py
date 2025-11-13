@@ -43,6 +43,7 @@ from django.core.exceptions import ValidationError
 from django.conf import settings
 from client_auth.utils.email_utils import send_reset_password_email
 from client_auth.utils.token_utils import client_token_generator
+from comman.utils.sanitizer import sanitize_input
 
 token_generator = PasswordResetTokenGenerator()
 
@@ -94,8 +95,21 @@ class ClientLoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        identifier = request.data.get("username")
-        password = request.data.get("password")
+        try:
+            identifier = sanitize_input(request.data.get("username"))
+            password = sanitize_input(request.data.get("password"))
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+        
         ip, agent = get_client_ip_and_agent(request)
 
         if not identifier or not password:
@@ -166,9 +180,21 @@ class ClientTwoFactorVerifyView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        client_id = request.data.get("client_id")
-        otp_code = request.data.get("otp_code")
-
+        try:
+            client_id = sanitize_input(request.data.get("client_id"))
+            otp_code = sanitize_input(request.data.get("otp_code"))
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+        
         if not client_id or not otp_code:
             return Response(
                 {"success": False, "message": "client_id and otp_code are required."},
@@ -242,7 +268,20 @@ class ClientForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = request.data.get("email")
+        try:
+            email = sanitize_input(request.data.get("email"))
+
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
         if not email:
             return Response(
                 {"success": False, "message": "Email is required."},
@@ -308,10 +347,22 @@ class ClientResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        uidb64 = request.data.get("uid")
-        token = request.data.get("token")
-        new_password = request.data.get("new_password")
-        confirm_password = request.data.get("confirm_password")
+        try:
+            uidb64 = sanitize_input(request.data.get("uid"))
+            token = sanitize_input(request.data.get("token"))
+            new_password = sanitize_input(request.data.get("new_password"))
+            confirm_password = sanitize_input(request.data.get("confirm_password"))
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
 
         ip, user_agent = get_client_ip_and_agent(request)
 
@@ -442,13 +493,23 @@ class ClientAccountUnlockView(APIView):
     authentication_classes = [ClientJWTAuthentication]
 
     def post(self, request):
+        try:
+            email = sanitize_input(request.data.get("email", "")).strip()
+            mobile = sanitize_input(request.data.get("mobile_number", "")).strip()
+            name = sanitize_input(request.data.get("name", "")).strip()
 
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
         client_user = getattr(request, "client", None)
-
-        email = request.data.get("email", "").strip()
-        mobile = request.data.get("mobile_number", "").strip()
-        name = request.data.get("name", "").strip()
-
         ip, agent = get_client_ip_and_agent(request)
 
         if not email:
@@ -511,7 +572,22 @@ class ClientChangePasswordView(APIView):
     permission_classes = [IsClientAuthenticated]
 
     def post(self, request):
-
+        try:
+            old_password = sanitize_input(request.data.get("old_password"))
+            new_password = sanitize_input(request.data.get("new_password"))
+            
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+            
         client = getattr(request, "client", None)
         print(f" Client attempting password change: {client}")
         if not client:
@@ -522,9 +598,6 @@ class ClientChangePasswordView(APIView):
                 },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-
-        old_password = request.data.get("old_password")
-        new_password = request.data.get("new_password")
         ip, agent = get_client_ip_and_agent(request)
 
         if not old_password or not new_password:
@@ -590,6 +663,21 @@ class ClientLogoutView(APIView):
     permission_classes = [IsClientAuthenticated]
 
     def post(self, request):
+        try:
+            refresh_token = sanitize_input(request.data.get("refresh"))
+
+        except ValueError as e:
+            error_message = str(e)
+            return Response(
+                {
+                    "success": False,
+                    "status": 400,
+                    "error": "Invalid input",
+                    "message": "Your input contains invalid characters. Please try again.",
+                },
+                status=400,
+            )
+            
         client = getattr(request, "client", None)
         if not client:
             return Response(
@@ -600,7 +688,6 @@ class ClientLogoutView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        refresh_token = request.data.get("refresh")
         access_token = request.headers.get("Authorization", "").replace("Bearer ", "")
         ip, agent = get_client_ip_and_agent(request)
 
