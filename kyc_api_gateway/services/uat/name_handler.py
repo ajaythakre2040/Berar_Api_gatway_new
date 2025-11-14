@@ -2,7 +2,9 @@ import requests
 from decimal import Decimal
 from decouple import config
 from kyc_api_gateway.models import UatNameMatch
+from kyc_api_gateway.services.uat.own_vendor_name_handler import internal_vendor_match, normalize_internal_vendor_response
 from kyc_api_gateway.utils.constants import VENDOR_NAME_SERVICE_ENDPOINTS
+from constant import VENDOR_NAMES
 
 SUREPASS_TOKEN = config("SUREPASS_TOKEN", default=None)
 if not SUREPASS_TOKEN:
@@ -10,7 +12,7 @@ if not SUREPASS_TOKEN:
 
 
 def build_name_request_uat(vendor_name, request_data):
-  
+
     vendor_key = vendor_name.lower()
 
     if vendor_key == "karza":
@@ -36,6 +38,13 @@ def build_name_request_uat(vendor_name, request_data):
 
 def call_vendor_api_uat(vendor, request_data):
     vendor_key = vendor.vendor_name.lower()
+
+    if vendor_key == VENDOR_NAMES.get("self"):
+        name1 = request_data.get("name_1")
+        name2 = request_data.get("name_2")
+
+        return internal_vendor_match(name1, name2)
+
     endpoint_path = VENDOR_NAME_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
 
@@ -107,8 +116,16 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
         return {
             "client_id": raw_data.get("requestId"),
             "request_id": raw_data.get("requestId"),
-            "name_1": request_data.get("name_1") or request_data.get("name1") if request_data else None,
-            "name_2": request_data.get("name_2") or request_data.get("name2") if request_data else None,
+            "name_1": (
+                request_data.get("name_1") or request_data.get("name1")
+                if request_data
+                else None
+            ),
+            "name_2": (
+                request_data.get("name_2") or request_data.get("name2")
+                if request_data
+                else None
+            ),
             "match_score": sanitize_decimal(raw_data.get("result", {}).get("score")),
             "match_status": raw_data.get("result", {}).get("result"),
         }
@@ -122,7 +139,11 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
             "match_score": sanitize_decimal(result.get("match_score")),
             "match_status": result.get("match_status"),
         }
+    elif vendor_name == VENDOR_NAMES.get("self"):
+        return normalize_internal_vendor_response(raw_data, request_data)
+
     return None
+
 
 def sanitize_decimal(value):
     if value is None:
