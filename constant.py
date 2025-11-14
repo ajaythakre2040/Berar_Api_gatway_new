@@ -8,8 +8,8 @@ ADMIN_USER = {
     "username": "admin",
     "password": "Admin@123",
     "position": "System Admin",
-    "role_id": 1,  # Role will be created and assigned if missing
-    "department_id": 1,  # Optional, safe to skip
+    "role_id": 1,  
+    "department_id": 1,
 }
 # Status codes as integers
 STATUS_ACTIVE = 1
@@ -27,6 +27,7 @@ USER_STATUS = {
 }
 USER_STATUS_CHOICES = [(k, v) for k, v in USER_STATUS.items()]
 MAX_LOGIN_ATTEMPTS = 5
+
 KYC_MY_SERVICES = {
     "PAN": 1,
     "BILL": 2,
@@ -34,10 +35,21 @@ KYC_MY_SERVICES = {
     "NAME": 4,
     "RC": 5,
     "DRIVING": 6,
-    "PASSPORT": 7,
+    "PASSPORT": 8,
+    "ADDRESS": 9,
 }
 
 
+# KYC_MY_SERVICES = {
+#     "PAN": 1,
+#     "BILL": 2,
+#     "VOTER": 3,
+#     "NAME": 4,
+#     "RC": 5,
+#     "DRIVING": 6,
+#     "PASSPORT": 8,
+#     "ADDRESS": 9,
+# }
 class DeliveryStatus(models.IntegerChoices):
     PENDING = 1, "Pending"
     DELIVERED = 2, "Delivered"

@@ -58,6 +58,12 @@ from kyc_api_gateway.views.kyc_client_services_management_view import (
 )
 
 
+<<<<<<< HEAD
+=======
+# from kyc_api_gateway.views.uat.pan_details_view import PanUatDetailsAPIView
+# from kyc_api_gateway.views.pro.pan_details_view import PanProductionDetailsAPIView
+# from kyc_api_gateway.views.uat.bill_details_view import BillUatDetailsAPIView
+>>>>>>> f00a18a155c8aac1c15de48562e8f8617425c9fb
 
 from kyc_api_gateway.views.uat.pan_details_view import UatPanDetailsAPIView
 from kyc_api_gateway.views.uat.bill_details_view import UatBillDetailsAPIView
@@ -88,7 +94,6 @@ from kyc_api_gateway.views.pro.voter_details_view import ProVoterDetailsAPIView
 from kyc_api_gateway.views.pro.driving_license_details_view import (
     ProDrivingLicenseAPIView,
 )
-
 
 urlpatterns = [
     path(
@@ -147,8 +152,6 @@ urlpatterns = [
         KycAllServicesDetails.as_view(),
         name="kyc_my_client_services_all",
     ),
-
-    
     path(
         "kyc_client_services/",
         KycClientServicesListCreate.as_view(),
@@ -170,13 +173,11 @@ urlpatterns = [
         name="vendor_priority_detail",
     ),
     # uat
-    # path("vendor_active_count/", VendorAllCount.as_view(), name="Vendor_all_count"),
     path("vendors_name_list/", VendorNameList.as_view(), name="vendor_name_list"),
     path("vendors_url_list/", VendorUrlList.as_view(), name="vendors_url_list"),
     path("api_management/", ApiManagementListCreate.as_view(), name="api_list_create"),
     path("api_management/<int:pk>/", ApiManagementDetail.as_view(), name="api_detail"),
     path("end_point_list/", ApiManagementList.as_view(), name="api_list"),
-    # path("uat_pan-details/", PanUatDetailsAPIView.as_view(), name="pan-details"),
     path("uat_pan_details/", UatPanDetailsAPIView.as_view(), name="uat_pan_details"),
     path("uat_bill_details/", UatBillDetailsAPIView.as_view(), name="uat_bill_details"),
     path("uat_name_details/", NameMatchUatAPIView.as_view(), name="uat_name_details"),
@@ -209,6 +210,7 @@ urlpatterns = [
         ClientReportDownloadAPIView.as_view(),
         name="uat_client_report_download",
     ),
+    
     # production
     path(
         "prod_bill_details/", ProBillDetailsAPIView.as_view(), name="prod_bill_details"

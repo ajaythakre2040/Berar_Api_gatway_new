@@ -9,13 +9,33 @@ if not SUREPASS_TOKEN:
     raise ValueError("SUREPASS_TOKEN is not set in your environment variables.")
 
 
+# def build_address_request(vendor_name, request_data):
+#     vendor_key = vendor_name.lower()
+
+#     address1 = request_data.get("address1", "").strip()
+#     address2 = request_data.get("address2", "").strip()
+
+#     if vendor_key == "karza":
+#         return {
+#             "address1": address1,
+#             "address2": address2,
+#             "clientData": {"caseId": request_data.get("case_id", "123456")},
+#         }
+
+#     elif vendor_key == "surepass":
+#         full_address = address1
+#         if address2:
+#             full_address = f"{address1} {address2}".strip()
+
+#         return {"address": full_address}
+
+#     return request_data
 def build_address_request(vendor_name, request_data):
     vendor_key = vendor_name.lower()
 
     address1 = request_data.get("address1", "").strip()
     address2 = request_data.get("address2", "").strip()
 
-    # ✅ Karza needs both
     if vendor_key == "karza":
         return {
             "address1": address1,
@@ -23,11 +43,17 @@ def build_address_request(vendor_name, request_data):
             "clientData": {"caseId": request_data.get("case_id", "123456")},
         }
 
+    elif vendor_key == "internal":   
+        return {
+            "address1": address1,
+            "address2": address2,
+            "client_id": request_data.get("client_id"),
+        }
+
     elif vendor_key == "surepass":
         full_address = address1
         if address2:
             full_address = f"{address1} {address2}".strip()
-
         return {"address": full_address}
 
     return request_data
@@ -39,7 +65,6 @@ def call_vendor_api(vendor, request_data):
     base_url = vendor.uat_base_url
 
     if not endpoint_path or not base_url:
-        print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
         return None
 
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
@@ -48,20 +73,12 @@ def call_vendor_api(vendor, request_data):
     headers = {"Content-Type": "application/json"}
     if vendor_key == "karza":
         headers["x-karza-key"] = vendor.uat_api_key
-    elif vendor_key == "surepass":
-        headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
-
-    print("\n--- Calling Vendor Address API ---")
-    print("URL:", full_url)
-    print("Payload:", payload)
+    elif vendor_key == "internal":
+        headers = {"Content-Type": "application/json"}
 
     try:
         response = requests.post(full_url, json=payload, headers=headers)
         response.raise_for_status()
-
-        print("\n--- Vendor UAT Name API Response ---")
-        print("Status Code:", response.status_code)
-        print("Response JSON:", response.json())
 
         return response.json()
 
@@ -109,32 +126,28 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
             "match_status": result.get("match"),
             "status_code": raw_data.get("statusCode"),
             "vendor_response": raw_data,
-            # Extract some normalized address details if needed
             "district": result.get("address1", {}).get("district"),
             "state": result.get("address1", {}).get("state"),
             "locality": result.get("address1", {}).get("locality"),
         }
 
-        # {'data': {'client_id': 'address_parser_DqfyuAHLtrWnPzmmcWgH', 'street': None, 'locality': None, 'city': 'NAGPUR', 'state': 'MAHARASHTRA', 'pincode': 'None'}, 'status_code': 200, 'success': True, 'message': 'Success', 'message_code': 'success'}
-
-    elif vendor_name == "surepass":
-        data = raw_data.get("data", {})
+       
+    elif vendor_name == "internal":
         return {
-            "vendor_name": "Surepass",
-            "client_id": data.get("client_id"),
-            "request_id": None,
+            "client_id": raw_data.get("client_id"),
+            "request_id": raw_data.get("request_id"),
             "address1": request_data.get("address1") if request_data else None,
             "address2": request_data.get("address2") if request_data else None,
-            "match_score": data.get("match_score"),
-            "match_status": data.get("match_status"),
+            "match_score": raw_data.get("score"),
+            "match_status": raw_data.get("match"),
             "status_code": raw_data.get("status_code"),
-            "street": data.get("street"),
-            "locality": data.get("locality"),
-            "city": data.get("city"),
-            "state": data.get("state"),
-            "pincode": data.get("pincode"),
             "vendor_response": raw_data,
+            "district": raw_data.get("district"),
+            "state": raw_data.get("state"),
+            "locality": raw_data.get("locality"),
+            "pincode": raw_data.get("pincode"),
         }
+
 
     return None
 
@@ -150,7 +163,6 @@ def save_address_match(normalized, created_by):
         success=True,
         status_code=str(normalized.get("status_code", "")),
         message=normalized.get("message"),
-        # optional normalized address info
         house=normalized.get("house"),
         locality=normalized.get("locality"),
         street=normalized.get("street"),

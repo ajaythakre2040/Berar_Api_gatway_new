@@ -160,7 +160,6 @@ def normalize_vendor_response(vendor_name, raw_data):
 
 
 def save_pan_data(normalized, created_by):
-    print( "normalized ", normalized)
     address = normalized.get("address", {})
     pan_obj = UatPanDetails.objects.create(
         request_id=normalized.get("request_id"),
@@ -215,7 +214,6 @@ def call_dynamic_vendor_api(url, request_data):
 
     try:
         response = requests.post(url, json=payload, headers=headers)
-        # print("response ", response)
         response.raise_for_status()
         try:
             return response.json()

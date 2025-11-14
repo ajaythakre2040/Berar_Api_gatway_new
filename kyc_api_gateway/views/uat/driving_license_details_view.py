@@ -18,25 +18,12 @@ from kyc_api_gateway.services.uat.driving_license_handler import (
     save_uat,
 )
 from constant import KYC_MY_SERVICES
-import re
+from kyc_api_gateway.utils.sanitizer import sanitize_input
 
 class UatDrivingLicenseAPIView(APIView):
 
     authentication_classes = []
     permission_classes = []
-
-    @staticmethod
-    def sanitize_input(value):
-        if not value:
-            return value
-        value = value.strip()
-
-        clean_value = re.sub(r"<.*?>", "", value)
-
-        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
-            raise ValueError("Invalid characters detected in input.")
-
-        return clean_value
 
 
     def get_client_ip(self, request):
@@ -47,9 +34,13 @@ class UatDrivingLicenseAPIView(APIView):
 
     def post(self, request):
 
+        client = self._authenticate_client(request)
+        if isinstance(client, Response):
+            return client
+
         try:
-            license_no = self.sanitize_input(request.data.get("license_no"))
-            dob = self.sanitize_input(request.data.get("dob"))
+            license_no = sanitize_input(request.data.get("license_no"))
+            dob = sanitize_input(request.data.get("dob"))
         except ValueError as e:
             return Response({
                 "success": False,
@@ -65,25 +56,10 @@ class UatDrivingLicenseAPIView(APIView):
             if not dob:
                 missing.append("dob")
             error_msg = f"Missing required fields: {', '.join(missing)}"
-            self._log_request(
-                dl_number=license_no,
-                name=None,
-                vendor=None,
-                endpoint=request.path,
-                status_code=400,
-                status="fail",
-                request_payload=request.data,
-                response_payload=None,
-                error_message=error_msg,
-                dl_obj=None,
-                created_by=None,
-            )
+            
             return Response({"success": False, "status": 400, "error": error_msg}, status=400)
 
-        client = self._authenticate_client(request)
-        if isinstance(client, Response):
-            return client
-
+    
         service_name = "DRIVING"
         service_id = KYC_MY_SERVICES.get(service_name.upper())
         if not service_id:
@@ -159,8 +135,14 @@ class UatDrivingLicenseAPIView(APIView):
                 dl_obj=cached,
                 created_by=client.id,
             )
+
+            message = (
+                    "Data from cache" if client.id == 1
+                    else "Data fetched successfully"
+                )
+            
             return Response(
-                {"success": True, "status": 200, "message": "Cached data", "data": serializer.data}
+                {"success": True, "status": 200, "message": message, "data": serializer.data}
             )
 
         vendors = self._get_priority_vendors(client, service_id)
@@ -179,6 +161,13 @@ class UatDrivingLicenseAPIView(APIView):
                 dl_obj=None,
                 created_by=client.id,
             )
+
+            error_msg = (
+                error_msg if client.id == 1
+                else "Service currently not accessible"
+
+            )
+
             return Response({"success": False, "status": 403, "error": error_msg}, status=403)
 
         for vp in vendors:
@@ -211,8 +200,6 @@ class UatDrivingLicenseAPIView(APIView):
                 normalized = normalize_vendor_response(vendor.vendor_name, data or {}, request.data)
                 if not normalized:
 
-                    print("No vendor returned valid data")
-
                     self._log_request(
                         dl_number=license_no,
                         name=None,
@@ -244,11 +231,18 @@ class UatDrivingLicenseAPIView(APIView):
                     dl_obj=dl_obj,
                     created_by=client.id,
                 )
+
+                message = (
+                    f"Data from {vendor.vendor_name}"
+                    if client.id == 1
+                    else "Data fetched successfully"
+                )
+
                 return Response(
                     {
                         "success": True,
                         "status": 200,
-                        "message": f"Data from {vendor.vendor_name}",
+                        "message": message,
                         "data": serializer.data,
                     }
                 )
@@ -269,10 +263,15 @@ class UatDrivingLicenseAPIView(APIView):
                 )
                 continue
 
-        return Response(
-            {"success": False, "status": 404, "error": "No vendor returned valid data"}, status=404
+        final_error_message = (
+            "No vendor returned valid data. All vendor requests failed."
+            if client.id == 1
+            else "Unable to process the request at the moment. Please try again later."
         )
 
+        return Response(
+            {"success": False, "status": 404, "error": final_error_message}, status=404
+        )
 
     def _authenticate_client(self, request):
         api_key = request.headers.get("X-API-KEY")
@@ -288,7 +287,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message="Missing API key",
                 dl_obj=None,
-                created_by=None,
+                created_by=client.id if client else None,
 
             )
             return Response({"success": False, "status": 401, "error": "Missing API key"}, status=401)
@@ -306,7 +305,7 @@ class UatDrivingLicenseAPIView(APIView):
                 response_payload=None,
                 error_message="Invalid API key",
                 dl_obj=None,
-                created_by=None,
+                created_by=client.id if client else None,
             )
             return Response({"success": False, "status": 401, "error": "Invalid API key"}, status=401)
 
@@ -320,6 +319,17 @@ class UatDrivingLicenseAPIView(APIView):
             raise ValueError("Cache days not configured for this service")
         if cs.status is False:
             raise PermissionError("Service disabled for this client")
+        
+
+        success_count = UatDrivingLicenseRequestLog.objects.filter(
+            created_by=client.id,
+            status_code__in=["200", 200],
+            status__iexact="success" 
+        ).count()
+        
+        if success_count >= cs.uat_api_limit:
+           
+            raise PermissionError(f"UAT API limit exceeded")
         return cs.day
 
     def _get_priority_vendors(self, client, service_id):

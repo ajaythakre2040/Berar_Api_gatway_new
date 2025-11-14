@@ -28,12 +28,8 @@ def call_voter_vendor_api(vendor, request_data):
     endpoint_path = VENDOR_VOTER_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
 
-    print("vendor_key:", vendor_key)
-    print("endpoint_path:", endpoint_path)
-    print("base_url:", base_url)
 
     if not endpoint_path or not base_url:
-        print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
         return None
 
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
@@ -45,18 +41,9 @@ def call_voter_vendor_api(vendor, request_data):
     elif vendor_key == "surepass":
         headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
 
-    print("\n--- Calling Vendor API ---")
-    print("URL:", full_url)
-    print("Headers:", headers)
-    print("Payload:", payload)
-
     try:
         response = requests.post(full_url, json=payload, headers=headers)
         response.raise_for_status()
-
-        print("\n--- Vendor API Response ---")
-        print("Status Code:", response.status_code)
-        print("Response JSON:", response.json())
 
         return response.json()
 
@@ -66,11 +53,6 @@ def call_voter_vendor_api(vendor, request_data):
         except Exception:
             error_content = response.text
 
-        print("\n--- Vendor API HTTPError ---")
-        print("Status Code:", response.status_code)
-        print("Error Message:", str(e))
-        print("Error Content:", error_content)
-
         return {
             "http_error": True,
             "status_code": response.status_code,
@@ -79,8 +61,6 @@ def call_voter_vendor_api(vendor, request_data):
         }
 
     except Exception as e:
-        print("\n--- Vendor API General Exception ---")
-        print("Error Message:", str(e))
 
         return {
             "http_error": True,
@@ -176,7 +156,6 @@ def normalize_vendor_response(vendor_name, raw_data):
 
 def save_voter_data(normalized, created_by):
     if not normalized:
-        print("[WARN] No normalized data to save.")
         return None
 
     try:
@@ -214,10 +193,8 @@ def save_voter_data(normalized, created_by):
             voter_id=normalized.get("epic_no"),  
             created_by=created_by
         )
-        print(f"[INFO] Voter saved: {voter_obj.id}")
         return voter_obj
     except Exception as e:
-        print(f"[ERROR] Failed to save voter: {e}")
         return None
 
 
