@@ -13,7 +13,7 @@ from auth_system.permissions.token_valid import IsTokenValid
 from kyc_api_gateway.models.api_management import ApiManagement
 from auth_system.utils.pagination import CustomPagination
 from django.db.models import Q
-
+from kyc_api_gateway.utils.key_generator import generate_secure_token
 
 class ClientManagementListCreate(APIView):
     permission_classes = [AllowAny]
@@ -112,5 +112,51 @@ class ClientManagementDetail(APIView):
         client.save()
         return Response(
             {"success": True, "message": "Client deleted successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+class ClientManagementChangeKey(APIView):
+    permission_classes = [AllowAny]
+
+    def patch(self, request, pk):
+
+        client = get_object_or_404(ClientManagement, pk=pk, deleted_at__isnull=True)
+
+        if client.status != 1:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Client is not active. Key update not allowed."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        key_type = request.data.get("key_type")
+
+        if key_type not in ["uat_key", "production_key"]:
+
+            return Response(
+                {
+                    "success": False,
+                    "message": "Invalid key type. Use 'uat_key' or 'production key'."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        new_token = generate_secure_token()
+
+        setattr(client, key_type, new_token)
+
+        client.updated_by = request.user.id if request.user else None
+        client.updated_at = timezone.now()
+        client.save()
+
+        return Response(
+            {
+                "success": True,
+                "message": f"{key_type} updated successfully.",
+                "key_type": key_type,
+                "new_key": new_token,
+            },
             status=status.HTTP_200_OK,
         )

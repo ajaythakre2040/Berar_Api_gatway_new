@@ -8,6 +8,7 @@ from kyc_api_gateway.views.Kyc_vendor_priority_view import (
 from kyc_api_gateway.views.client_management_view import (
     ClientManagementListCreate,
     ClientManagementDetail,
+    ClientManagementChangeKey
     #  ClientAllCount,
 )
 from kyc_api_gateway.views.uat.vendor_address_match import (
@@ -38,6 +39,7 @@ from kyc_api_gateway.views.api_management_view import (
     ApiManagementListCreate,
     ApiManagementDetail,
     ApiManagementList,
+    
 )
 
 from kyc_api_gateway.views.kyc_my_services_view import (
@@ -52,14 +54,10 @@ from kyc_api_gateway.views.kyc_my_services_view import (
 from kyc_api_gateway.views.kyc_client_services_management_view import (
     KycClientServicesListCreate,
     KycClientServicesDetail,
+    
 )
 
 
-# from kyc_api_gateway.views.uat.pan_details_view import PanUatDetailsAPIView
-
-# from kyc_api_gateway.views.pro.pan_details_view import PanProductionDetailsAPIView
-
-# from kyc_api_gateway.views.uat.bill_details_view import BillUatDetailsAPIView
 
 from kyc_api_gateway.views.uat.pan_details_view import UatPanDetailsAPIView
 from kyc_api_gateway.views.uat.bill_details_view import UatBillDetailsAPIView
@@ -102,6 +100,11 @@ urlpatterns = [
         "client_management/<int:pk>/",
         ClientManagementDetail.as_view(),
         name="client_management_detail",
+    ),
+    path(
+        "client_management/change_key/<int:pk>/",
+        ClientManagementChangeKey.as_view(),
+        name="client_management_change_key",
     ),
     # path("client_count/", ClientAllCount.as_view(), name="client_count"),
     path(
