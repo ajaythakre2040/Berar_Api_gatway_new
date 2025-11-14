@@ -19,12 +19,14 @@ from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_voter_request_log import UatVoterRequestLog
 from kyc_api_gateway.utils.sanitizer import sanitize_input
 
+
 class UatVoterDetailsAPIView(APIView):
     authentication_classes = []
     permission_classes = []
 
 
     def get_client_ip(self, request):
+
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             ip = x_forwarded_for.split(',')[0]
@@ -64,6 +66,8 @@ class UatVoterDetailsAPIView(APIView):
 
         service_name = "VOTER"
         service_id = KYC_MY_SERVICES.get(service_name.upper())
+
+
         if not service_id:
             self._log_request(
                 voter_id=voter_id,
@@ -150,15 +154,23 @@ class UatVoterDetailsAPIView(APIView):
                 user_agent=user_agent,
                 created_by=client.id
             )
+
+            message = (
+                "Data from cache" if client.id == 1
+                else "Data fetched successfully"
+            )
+
             return Response({
                 "success": True,
                 "status": 200,
-                "message": "Cached data",
+                "message": message,
                 "data": serializer.data
             })
 
         vendors = self._get_priority_vendors(client, service_id)
         if not vendors.exists():
+            error_msg = "No vendors assigned for this service"
+
             self._log_request(
                 voter_id=voter_id,
                 vendor_name=None,
@@ -167,26 +179,30 @@ class UatVoterDetailsAPIView(APIView):
                 status="fail",
                 request_payload=request.data,
                 response_payload=None,
-                error_message="No vendors assigned for this service",
+                error_message=error_msg,
                 user=user,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 created_by=client.id
             )
+
+            error_msg = (
+                error_msg if client.id == 1
+                else "Service currently not accessible"
+
+            )
+
             return Response({
                 "success": False,
                 "status": 403,
-                "error": "No vendors assigned for this service"
+                "error": error_msg
             }, status=403)
 
         for vp in vendors:
             vendor = vp.vendor
 
-            print('vendore', vendor)
             try:
                 response = call_voter_vendor_api(vendor, request.data)
-
-                print('Response in View', response)
 
                 if response and response.get("http_error"):
                     self._log_request(
@@ -245,10 +261,18 @@ class UatVoterDetailsAPIView(APIView):
                     user_agent=user_agent,
                     created_by=client.id
                 )
+
+
+                message = (
+                    f"Data from {vendor.vendor_name}"
+                    if client.id == 1
+                    else "Data fetched successfully"
+                )
+
                 return Response({
                     "success": True,
                     "status": 200,
-                    "message": f"Data from {vendor.vendor_name}",
+                    "message": message,
                     "data": serializer.data
                 })
 
@@ -283,10 +307,18 @@ class UatVoterDetailsAPIView(APIView):
             user_agent=user_agent,
             created_by=client.id
         )
+
+        
+        final_error_message = (
+            "No vendor returned valid data. All vendor requests failed."
+            if client.id == 1
+            else "Unable to process the request at the moment. Please try again later."
+        )
+        
         return Response({
             "success": False,
             "status": 404,
-            "error": "No vendor returned valid data"
+            "error": final_error_message
         }, status=404)
 
     def _authenticate_client(self, request):
@@ -294,6 +326,7 @@ class UatVoterDetailsAPIView(APIView):
         user_agent = request.META.get('HTTP_USER_AGENT', '')
 
         api_key = request.headers.get("X-API-KEY")
+
         if not api_key:
             self._log_request(
                 voter_id=None,
@@ -316,7 +349,6 @@ class UatVoterDetailsAPIView(APIView):
             deleted_at__isnull=True
         ).first()
 
-        print('this is client', client)
         
         if not client:
             self._log_request(
@@ -338,11 +370,13 @@ class UatVoterDetailsAPIView(APIView):
         return client
 
     def _get_cache_days(self, client, service_id):
+
         cs = KycClientServicesManagement.objects.filter(
             client=client,
             myservice__id=service_id,
             deleted_at__isnull=True
         ).first()
+        
         if not cs:
             raise ValueError(f"Cache days not configured for client={client.id}, service_id={service_id}")
         if cs.status is False:
@@ -370,6 +404,7 @@ class UatVoterDetailsAPIView(APIView):
     def _log_request(self, voter_id, vendor_name, endpoint, status_code, status,
                      request_payload=None, response_payload=None, error_message=None,
                      user=None, voter_obj=None, ip_address=None, user_agent=None, created_by=None):
+        
         UatVoterRequestLog.objects.create(
             voter_detail=voter_obj,
             vendor=vendor_name,

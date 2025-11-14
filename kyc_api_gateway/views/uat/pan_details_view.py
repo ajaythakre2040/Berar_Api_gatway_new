@@ -154,14 +154,17 @@ class UatPanDetailsAPIView(APIView):
                 user_agent=user_agent,
                 created_by=client.id,
             )
+
+            message = (
+                    "Data from cache" if client.id == 1
+                    else "Data fetched successfully"
+                )
+                
             return Response(
-                {"success": True, "status": 200, "message": "Cached data", "data": serializer.data}
+                {"success": True, "status": 200, "message": message, "data": serializer.data}
             )
 
         vendors = self._get_priority_vendors(client, service_id)
-
-        print(f"[DEBUG] Found {vendors.count()} priority vendors for client={client.id}, service_id={service_id}")
-
 
         if not vendors.exists():
             error_msg = "No vendors assigned for this service"
@@ -179,6 +182,12 @@ class UatPanDetailsAPIView(APIView):
                 user_agent=user_agent,
                 created_by=client.id,
             )
+
+            error_msg = (
+                error_msg if client.id == 1
+                else "Service currently not accessible"
+
+            )
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
             )
@@ -186,7 +195,6 @@ class UatPanDetailsAPIView(APIView):
         for vp in vendors:
             vendor = vp.vendor
 
-            print(f"[DEBUG] Calling vendor {vendor.vendor_name} for PAN {pan}")
             try:
                 response = call_vendor_api(vendor, request.data)
                
@@ -245,11 +253,17 @@ class UatPanDetailsAPIView(APIView):
                     user_agent=user_agent,
                     created_by=client.id,
                 )
+                message = (
+                    f"Data from {vendor.vendor_name}"
+                    if client.id == 1
+                    else "Data fetched successfully"
+                )
+
                 return Response(
                     {
                         "success": True,
                         "status": 200,
-                        "message": f"Data from {vendor.vendor_name}",
+                        "message": message,
                         "data": serializer.data,
                     }
                 )
@@ -270,11 +284,16 @@ class UatPanDetailsAPIView(APIView):
                 )
                 continue
 
-        return Response(
-            {"success": False, "status": 404, "error": "No vendor returned valid data"},
-            status=404,
+        final_error_message = (
+            "No vendor returned valid data. All vendor requests failed."
+            if client.id == 1
+            else "Unable to process the request at the moment. Please try again later."
         )
 
+        return Response(
+            {"success": False, "status": 404, "error": final_error_message},
+            status=404,
+        )
 
     def _authenticate_client(self, request):
         ip_address = self.get_client_ip(request)
@@ -336,9 +355,6 @@ class UatPanDetailsAPIView(APIView):
             status__iexact="success" 
         ).count()
         
-
-        print(f"[DEBUG] Client ID={client.id} has {success_count} successful UAT API calls")
-
         if success_count >= cs.uat_api_limit:
            
             raise PermissionError(f"UAT API limit exceeded")

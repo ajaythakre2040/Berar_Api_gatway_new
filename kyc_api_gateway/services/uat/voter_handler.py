@@ -30,7 +30,6 @@ def call_voter_vendor_api(vendor, request_data):
 
 
     if not endpoint_path or not base_url:
-        print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
         return None
 
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
@@ -45,10 +44,6 @@ def call_voter_vendor_api(vendor, request_data):
     try:
         response = requests.post(full_url, json=payload, headers=headers)
         response.raise_for_status()
-
-        print("\n--- Vendor API Response ---")
-        print("Status Code:", response.status_code)
-        print("Response JSON:", response.json())
 
         return response.json()
 
@@ -161,7 +156,6 @@ def normalize_vendor_response(vendor_name, raw_data):
 
 def save_voter_data(normalized, created_by):
     if not normalized:
-        print("[WARN] No normalized data to save.")
         return None
 
     try:
@@ -199,10 +193,8 @@ def save_voter_data(normalized, created_by):
             voter_id=normalized.get("epic_no"),  
             created_by=created_by
         )
-        print(f"[INFO] Voter saved: {voter_obj.id}")
         return voter_obj
     except Exception as e:
-        print(f"[ERROR] Failed to save voter: {e}")
         return None
 
 

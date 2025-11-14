@@ -34,8 +34,6 @@ def build_vendor_request(vendor_name, request_data):
     else:
         normalized_payload = request_data
 
-    print(f"[DEBUG] Final payload for vendor '{vendor_name}': {normalized_payload}")
-
     return normalized_payload
 
 
@@ -45,7 +43,6 @@ def call_vendor_api_uat(vendor, request_data):
     base_url = vendor.uat_base_url
 
     if not endpoint_path or not base_url:
-        print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
         return None
 
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"

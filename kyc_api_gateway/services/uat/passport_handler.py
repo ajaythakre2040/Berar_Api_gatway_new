@@ -57,7 +57,6 @@ def call_vendor_api_uat(vendor, request_data):
     base_url = vendor.uat_base_url
 
     if not endpoint_path or not base_url:
-        print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
         return {
             "http_error": True,
             "error_message": f"Vendor '{vendor.vendor_name}' not configured properly."
@@ -72,22 +71,13 @@ def call_vendor_api_uat(vendor, request_data):
     elif vendor_key == "surepass" and SUREPASS_TOKEN:
         headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
 
-    print("\n--- Calling Vendor UAT Passport API ---")
-    print("URL:", full_url)
-    print("Headers:", headers)
-    print("Payload:", payload)
-
     try:
         response = requests.post(full_url, json=payload, headers=headers, timeout=20)
         response.raise_for_status() 
 
-        print("\n--- Vendor API Response ---")
-        print("Status Code:", response.status_code)
-        print("Response JSON:", response.json())
         return response.json()
 
     except requests.exceptions.Timeout:
-        print("[ERROR] Vendor API Timeout.")
         return {
             "http_error": True,
             "error_message": "Vendor API request timed out."
@@ -99,7 +89,6 @@ def call_vendor_api_uat(vendor, request_data):
         except Exception:
             error_content = response.text
 
-        print("[ERROR] Vendor API returned HTTP error:", e)
         return {
             "http_error": True,
             "status_code": response.status_code,
@@ -108,7 +97,6 @@ def call_vendor_api_uat(vendor, request_data):
         }
 
     except Exception as e:
-        print("[ERROR] Unexpected exception:", str(e))
         return {
             "http_error": True,
             "status_code": None,

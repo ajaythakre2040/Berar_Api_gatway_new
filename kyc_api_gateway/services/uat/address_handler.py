@@ -65,7 +65,6 @@ def call_vendor_api(vendor, request_data):
     base_url = vendor.uat_base_url
 
     if not endpoint_path or not base_url:
-        print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
         return None
 
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
@@ -77,18 +76,9 @@ def call_vendor_api(vendor, request_data):
     elif vendor_key == "internal":
         headers = {"Content-Type": "application/json"}
 
-
-    print("\n--- Calling Vendor Address API ---")
-    print("URL:", full_url)
-    print("Payload:", payload)
-
     try:
         response = requests.post(full_url, json=payload, headers=headers)
         response.raise_for_status()
-
-        print("\n--- Vendor UAT Name API Response ---")
-        print("Status Code:", response.status_code)
-        print("Response JSON:", response.json())
 
         return response.json()
 

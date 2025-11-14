@@ -137,10 +137,14 @@ class RcUatAPIView(APIView):
                 user_agent=user_agent,
                 created_by=client.id
             )
-            return Response({"success": True, "status": 200, "message": "Cached data", "data": serializer.data})
+
+            message = (
+                "Data from cache" if client.id == 1
+                else "Data fetched successfully"
+            )
+            return Response({"success": True, "status": 200, "message": message, "data": serializer.data})
 
         vendors = self._get_priority_vendors(client, service_id)
-        print(f"[DEBUG] Found {vendors.count()} priority vendors for client={client.id}, service_id={service_id}")
 
         if not vendors.exists():
             error_msg = "No vendors assigned for this service"
@@ -159,14 +163,18 @@ class RcUatAPIView(APIView):
                 user_agent=user_agent,
                 created_by=client.id
             )
+
+            error_msg = (
+                error_msg if client.id == 1
+                else "Service currently not accessible"
+
+            )
             return Response({"success": False, "status": 403, "error": error_msg}, status=403)
 
         last_exception = None
         for vp in vendors:
             vendor = vp.vendor
             try:
-                print(f"[DEBUG] Calling vendor {vendor.vendor_name} for RC {rc_number}")
-
                 response = call_rc_vendor_api(vendor, request.data)
                
                 if response and response.get("http_error"):
@@ -231,8 +239,14 @@ class RcUatAPIView(APIView):
                     created_by=client.id
                 )
 
+                message = (
+                    f"Data from {vendor.vendor_name}"
+                    if client.id == 1
+                    else "Data fetched successfully"
+                )
+
                 return Response(
-                    {"success": True, "status": 200, "message": f"Data retrieved from {vendor.vendor_name}", "data": serializer.data},
+                    {"success": True, "status": 200, "message":message, "data": serializer.data},
                     status=200
                 )
 
@@ -273,7 +287,14 @@ class RcUatAPIView(APIView):
             user_agent=user_agent,
             created_by=client.id
         )
-        return Response({"success": False, "status": 404, "error": "All vendors failed"}, status=404)
+
+        final_error_message = (
+            "No vendor returned valid data. All vendor requests failed."
+            if client.id == 1
+            else "Unable to process the request at the moment. Please try again later."
+        )
+
+        return Response({"success": False, "status": 404, "error": final_error_message}, status=404)
 
     def _authenticate_client(self, request):
         ip_address = self.get_client_ip(request)

@@ -135,8 +135,14 @@ class UatDrivingLicenseAPIView(APIView):
                 dl_obj=cached,
                 created_by=client.id,
             )
+
+            message = (
+                    "Data from cache" if client.id == 1
+                    else "Data fetched successfully"
+                )
+            
             return Response(
-                {"success": True, "status": 200, "message": "Cached data", "data": serializer.data}
+                {"success": True, "status": 200, "message": message, "data": serializer.data}
             )
 
         vendors = self._get_priority_vendors(client, service_id)
@@ -155,6 +161,13 @@ class UatDrivingLicenseAPIView(APIView):
                 dl_obj=None,
                 created_by=client.id,
             )
+
+            error_msg = (
+                error_msg if client.id == 1
+                else "Service currently not accessible"
+
+            )
+
             return Response({"success": False, "status": 403, "error": error_msg}, status=403)
 
         for vp in vendors:
@@ -187,8 +200,6 @@ class UatDrivingLicenseAPIView(APIView):
                 normalized = normalize_vendor_response(vendor.vendor_name, data or {}, request.data)
                 if not normalized:
 
-                    print("No vendor returned valid data")
-
                     self._log_request(
                         dl_number=license_no,
                         name=None,
@@ -220,11 +231,18 @@ class UatDrivingLicenseAPIView(APIView):
                     dl_obj=dl_obj,
                     created_by=client.id,
                 )
+
+                message = (
+                    f"Data from {vendor.vendor_name}"
+                    if client.id == 1
+                    else "Data fetched successfully"
+                )
+
                 return Response(
                     {
                         "success": True,
                         "status": 200,
-                        "message": f"Data from {vendor.vendor_name}",
+                        "message": message,
                         "data": serializer.data,
                     }
                 )
@@ -245,10 +263,15 @@ class UatDrivingLicenseAPIView(APIView):
                 )
                 continue
 
-        return Response(
-            {"success": False, "status": 404, "error": "No vendor returned valid data"}, status=404
+        final_error_message = (
+            "No vendor returned valid data. All vendor requests failed."
+            if client.id == 1
+            else "Unable to process the request at the moment. Please try again later."
         )
 
+        return Response(
+            {"success": False, "status": 404, "error": final_error_message}, status=404
+        )
 
     def _authenticate_client(self, request):
         api_key = request.headers.get("X-API-KEY")
@@ -304,9 +327,6 @@ class UatDrivingLicenseAPIView(APIView):
             status__iexact="success" 
         ).count()
         
-
-        print(f"[DEBUG] Client ID={client.id} has {success_count} successful UAT API calls")
-
         if success_count >= cs.uat_api_limit:
            
             raise PermissionError(f"UAT API limit exceeded")

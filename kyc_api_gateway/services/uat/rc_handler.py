@@ -43,8 +43,6 @@ def call_rc_vendor_api(vendor, request_data):
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
     payload = build_rc_request(vendor_key, request_data)
 
-    print('RC Payload:', payload)
-    print('RC URL:', full_url)
 
     headers = {"Content-Type": "application/json"}
     if vendor_key == "karza":
@@ -56,7 +54,6 @@ def call_rc_vendor_api(vendor, request_data):
         response = requests.post(full_url, json=payload, headers=headers)
         response.raise_for_status()
         try:
-            print("Handler Response:", response.json())
             return response.json()
         except ValueError:
             return {
@@ -141,7 +138,6 @@ def normalize_rc_response(vendor_name, raw_data):
 
 def save_rc_data(normalized, created_by):
     if not normalized:
-        print("[ERROR] Cannot save RC data: normalized is None")
         return None
 
     rc_fields = [f.name for f in UatRcDetails._meta.get_fields()]
@@ -153,7 +149,6 @@ def save_rc_data(normalized, created_by):
     try:
         return UatRcDetails.objects.create(**filtered_data)
     except Exception as e:
-        print(f"[ERROR] Failed saving RCDetails: {e}")
         return None
 
 

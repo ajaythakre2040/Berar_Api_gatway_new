@@ -162,18 +162,22 @@ class UatPassportView(APIView):
                 created_by=client.id if client else None,
 
             )
+
+            message = (
+                "Data from cache" if client.id == 1
+                else "Data fetched successfully"
+            )
+            
             return Response(
                 {
                     "success": True,
                     "status": 200,
-                    "message": "Cached data",
+                    "message": message,
                     "data": serializer.data,
                 }
             )
         vendors = self._get_priority_vendors(client, service_id)
-        print(
-            f"[DEBUG] Found {vendors.count()} priority vendors for client={client.id}, service_id={service_id}"
-        )
+       
         if not vendors.exists():
             error_msg = "No vendors configured for Name Match service"
             self._log_passport_request(
@@ -193,6 +197,13 @@ class UatPassportView(APIView):
                 created_by=client.id if client else None,
 
             )
+
+            error_msg = (
+                error_msg if client.id == 1
+                else "Service currently not accessible"
+
+            )
+
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
             )
@@ -223,16 +234,11 @@ class UatPassportView(APIView):
                 try:
                     data = response
 
-                    print(f"[DEBUG] Vendor {vendor.vendor_name} response data: {data}")
-
-
                 except Exception:
                     data = None
                 normalized = normalize_vendor_response(
                     vendor.vendor_name, data, request.data or {}
                 )
-
-                print(f"[DEBUG] Normalized data from vendor {vendor.vendor_name}: {normalized}")
 
                 if not normalized:
                     error_msg = f"Normalization failed for vendor {vendor.vendor_name}"
@@ -273,11 +279,18 @@ class UatPassportView(APIView):
                     created_by=client.id if client else None,
 
                 )
+
+                message = (
+                    f"Data from {vendor.vendor_name}"
+                    if client.id == 1
+                    else "Data fetched successfully"
+                )
+
                 return Response(
                     {
                         "success": True,
                         "status": 200,
-                        "message": f"Data from {vendor.vendor_name}",
+                        "message": message,
                         "data": serializer.data,
                     }
                 )
@@ -301,8 +314,14 @@ class UatPassportView(APIView):
 
                 )
                 continue
+        final_error_message = (
+            "No vendor returned valid data. All vendor requests failed."
+            if client.id == 1
+            else "Unable to process the request at the moment. Please try again later."
+        )
+
         return Response(
-            {"success": False, "status": 404, "error": "No vendor returned valid data"},
+            {"success": False, "status": 404, "error": final_error_message},
             status=404,
         )
 
@@ -386,9 +405,6 @@ class UatPassportView(APIView):
             status__iexact="success" 
         ).count()
         
-
-        print(f"[DEBUG] Client ID={client.id} has {success_count} successful UAT API calls")
-
         if success_count >= cs.uat_api_limit:
            
             raise PermissionError(f"UAT API limit exceeded")
