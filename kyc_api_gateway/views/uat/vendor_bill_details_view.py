@@ -14,7 +14,7 @@ from kyc_api_gateway.services.uat.bill_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_bill_request_log import UatBillRequestLog
-from kyc_api_gateway.utils.sanitizer import sanitize_input
+from comman.utils.sanitizer import sanitize_input
 
 
 class VendorUatBillDetailsAPIView(APIView):

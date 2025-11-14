@@ -16,7 +16,7 @@ from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_pan_request_log import UatPanRequestLog
 from auth_system.permissions.token_valid import IsTokenValid
 from rest_framework.permissions import IsAuthenticated
-from kyc_api_gateway.utils.sanitizer import sanitize_input
+from comman.utils.sanitizer import sanitize_input
 
 
 class VendorUatPanDetailsAPIView(APIView):

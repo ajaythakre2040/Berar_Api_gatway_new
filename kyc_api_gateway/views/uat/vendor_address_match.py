@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from comman.utils.sanitizer import sanitize_input
 from kyc_api_gateway.models.uat_address_details import UatAddressMatch
 from rest_framework.permissions import IsAuthenticated
 from auth_system.permissions.token_valid import IsTokenValid
@@ -17,7 +18,6 @@ from kyc_api_gateway.services.uat.address_handler import (
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_address_log import UatAddressMatchRequestLog
 import re
-from kyc_api_gateway.utils.sanitizer import sanitize_input
 
 
 class VendorUatAddressDetailsAPIView(APIView):

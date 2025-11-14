@@ -14,7 +14,7 @@ from kyc_api_gateway.services.uat.voter_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_voter_request_log import UatVoterRequestLog
-from kyc_api_gateway.utils.sanitizer import sanitize_input
+from comman.utils.sanitizer import sanitize_input
 
 
 class VendorUatVoterDetailsAPIView(APIView):

@@ -14,7 +14,7 @@ from kyc_api_gateway.services.uat.rc_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_rc_request_log import UatRcRequestLog
-from kyc_api_gateway.utils.sanitizer import sanitize_input
+from comman.utils.sanitizer import sanitize_input
 
 
 class VendorUatRcDetailsAPIView(APIView):
