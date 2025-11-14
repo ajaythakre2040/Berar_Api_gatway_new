@@ -12,7 +12,6 @@ def test_api_view(request):
         }
     )
 
-
 urlpatterns = [
     path("test/", test_api_view, name="test-api"), 
     path("admin/", admin.site.urls),

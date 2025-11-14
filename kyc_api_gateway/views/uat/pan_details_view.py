@@ -17,25 +17,12 @@ from kyc_api_gateway.services.uat.pan_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_pan_request_log import UatPanRequestLog
-import re
+from kyc_api_gateway.utils.sanitizer import sanitize_input
 
 class UatPanDetailsAPIView(APIView):
     authentication_classes = []
     permission_classes = []
 
-
-    @staticmethod
-    def sanitize_input(value):
-        if not value:
-            return value
-        value = value.strip()
-
-        clean_value = re.sub(r"<.*?>", "", value)
-
-        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
-            raise ValueError("Invalid characters detected in input.")
-
-        return clean_value
     
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -47,8 +34,12 @@ class UatPanDetailsAPIView(APIView):
 
     def post(self, request):
         
+        client = self._authenticate_client(request)
+        if isinstance(client, Response):
+            return client
+    
         try:
-            pan = self.sanitize_input(request.data.get("pan"))
+            pan = sanitize_input(request.data.get("pan"))
             if pan:
                 pan = pan.strip().upper()
         except ValueError as e:
@@ -64,27 +55,11 @@ class UatPanDetailsAPIView(APIView):
 
         if not pan or pan.strip() == "":
             error_msg = "Missing required field: pan"
-            self._log_request(
-                pan_number=None,
-                vendor_name=None,
-                endpoint=request.path,
-                status_code=400,
-                status="fail",
-                request_payload=request.data,
-                response_payload=None,
-                error_message=error_msg,
-                user=None,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                created_by=None,
-            )
+           
             return Response(
                 {"success": False, "status": 400, "error": error_msg}, status=400
             )
 
-        client = self._authenticate_client(request)
-        if isinstance(client, Response):
-            return client
 
         service_name = "PAN"
         service_id = KYC_MY_SERVICES.get(service_name.upper())
@@ -115,8 +90,7 @@ class UatPanDetailsAPIView(APIView):
         except PermissionError as e:
 
             self._log_request(
-                name1=None,
-                name2=None,
+                pan_number=pan,
                 vendor_name=None,
                 endpoint=request.path,
                 status_code=403,
@@ -125,15 +99,15 @@ class UatPanDetailsAPIView(APIView):
                 response_payload=None,
                 error_message=str(e),
                 user=None,
-                match_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 created_by=client.id,
             )
+           
             return Response({
                 "success": False,
                 "status": 403,
-                "error": str(e)   # ✅ fix here
+                "error": str(e)   
             }, status=403)
 
         except ValueError as e:
@@ -180,14 +154,17 @@ class UatPanDetailsAPIView(APIView):
                 user_agent=user_agent,
                 created_by=client.id,
             )
+
+            message = (
+                    "Data from cache" if client.id == 1
+                    else "Data fetched successfully"
+                )
+                
             return Response(
-                {"success": True, "status": 200, "message": "Cached data", "data": serializer.data}
+                {"success": True, "status": 200, "message": message, "data": serializer.data}
             )
 
         vendors = self._get_priority_vendors(client, service_id)
-
-        print(f"[DEBUG] Found {vendors.count()} priority vendors for client={client.id}, service_id={service_id}")
-
 
         if not vendors.exists():
             error_msg = "No vendors assigned for this service"
@@ -205,6 +182,12 @@ class UatPanDetailsAPIView(APIView):
                 user_agent=user_agent,
                 created_by=client.id,
             )
+
+            error_msg = (
+                error_msg if client.id == 1
+                else "Service currently not accessible"
+
+            )
             return Response(
                 {"success": False, "status": 403, "error": error_msg}, status=403
             )
@@ -212,7 +195,6 @@ class UatPanDetailsAPIView(APIView):
         for vp in vendors:
             vendor = vp.vendor
 
-            print(f"[DEBUG] Calling vendor {vendor.vendor_name} for PAN {pan}")
             try:
                 response = call_vendor_api(vendor, request.data)
                
@@ -271,11 +253,17 @@ class UatPanDetailsAPIView(APIView):
                     user_agent=user_agent,
                     created_by=client.id,
                 )
+                message = (
+                    f"Data from {vendor.vendor_name}"
+                    if client.id == 1
+                    else "Data fetched successfully"
+                )
+
                 return Response(
                     {
                         "success": True,
                         "status": 200,
-                        "message": f"Data from {vendor.vendor_name}",
+                        "message": message,
                         "data": serializer.data,
                     }
                 )
@@ -296,11 +284,16 @@ class UatPanDetailsAPIView(APIView):
                 )
                 continue
 
-        return Response(
-            {"success": False, "status": 404, "error": "No vendor returned valid data"},
-            status=404,
+        final_error_message = (
+            "No vendor returned valid data. All vendor requests failed."
+            if client.id == 1
+            else "Unable to process the request at the moment. Please try again later."
         )
 
+        return Response(
+            {"success": False, "status": 404, "error": final_error_message},
+            status=404,
+        )
 
     def _authenticate_client(self, request):
         ip_address = self.get_client_ip(request)
@@ -318,7 +311,7 @@ class UatPanDetailsAPIView(APIView):
                 request_payload=request.data,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None,
+                created_by=client.id if client else None,
             )
             return Response({"success": False, "status": 401, "error": "Missing API key"}, status=401)
 
@@ -337,7 +330,7 @@ class UatPanDetailsAPIView(APIView):
                 request_payload=request.data,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None,
+                created_by=client.id if client else None,
             )
             return Response({"success": False, "status": 401, "error": "Invalid API key"}, status=401)
 
@@ -356,6 +349,15 @@ class UatPanDetailsAPIView(APIView):
         if cs.status is False:
             raise PermissionError("Service is not permitted for client")
 
+        success_count = UatPanRequestLog.objects.filter(
+            created_by=client.id,
+            status_code__in=["200", 200],
+            status__iexact="success" 
+        ).count()
+        
+        if success_count >= cs.uat_api_limit:
+           
+            raise PermissionError(f"UAT API limit exceeded")
         return cs.day
 
     def _get_priority_vendors(self, client, service_id):

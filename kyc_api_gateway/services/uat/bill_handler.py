@@ -34,8 +34,6 @@ def build_vendor_request(vendor_name, request_data):
     else:
         normalized_payload = request_data
 
-    print(f"[DEBUG] Final payload for vendor '{vendor_name}': {normalized_payload}")
-
     return normalized_payload
 
 
@@ -44,12 +42,7 @@ def call_vendor_api_uat(vendor, request_data):
     endpoint_path = VENDOR_BILL_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
 
-    print(f"vendor_key: {vendor_key}")
-    print(f"endpoint_path: {endpoint_path}")
-    print(f"base_url: {base_url}")
-
     if not endpoint_path or not base_url:
-        print(f"[ERROR] Vendor '{vendor.vendor_name}' not configured properly.")
         return None
 
     full_url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
@@ -61,18 +54,9 @@ def call_vendor_api_uat(vendor, request_data):
     elif vendor_key == "surepass":
         headers["Authorization"] = f"Bearer {SUREPASS_TOKEN}"
 
-    print("\n--- Calling Vendor UAT BILL API ---")
-    print("URL:", full_url)
-    print("Headers:", headers)
-    print("Payload:", payload)
-
     try:
         response = requests.post(full_url, json=payload, headers=headers)
         response.raise_for_status()
-
-        print("\n--- Vendor UAT BILL API Response ---")
-        print("Status Code:", response.status_code)
-        print("Response JSON:", response.json())
 
         return response.json()
 
@@ -82,11 +66,6 @@ def call_vendor_api_uat(vendor, request_data):
         except Exception:
             error_content = response.text
 
-        print("\n--- Vendor UAT BILL API HTTPError ---")
-        print("Status Code:", response.status_code)
-        print("Error Message:", str(e))
-        print("Error Content:", error_content)
-
         return {
             "http_error": True,
             "status_code": response.status_code,
@@ -95,8 +74,6 @@ def call_vendor_api_uat(vendor, request_data):
         }
 
     except Exception as e:
-        print("\n--- Vendor UAT BILL API General Exception ---")
-        print("Error Message:", str(e))
 
         return {
             "http_error": True,

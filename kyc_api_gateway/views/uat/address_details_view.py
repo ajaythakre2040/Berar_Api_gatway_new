@@ -13,27 +13,13 @@ from kyc_api_gateway.serializers.uat_address_match_serializer import UatAddressM
 
 from kyc_api_gateway.services.uat.address_handler import call_vendor_api, normalize_vendor_response , save_address_match 
 from constant import KYC_MY_SERVICES
-import re
+from kyc_api_gateway.utils.sanitizer import sanitize_input
+
+
 class AddressMatchUatAPIView(APIView):
 
     authentication_classes = []
     permission_classes = []
-
-   
-    @staticmethod
-    def sanitize_input(value):
-        if not value:
-            return value
-        value = value.strip()
-
-        # Remove HTML/JS tags
-        clean_value = re.sub(r"<.*?>", "", value)
-
-        # Block suspicious patterns (like JS events or script tags)
-        if re.search(r"(script|alert|onerror|onload|<|>|javascript:)", clean_value, re.IGNORECASE):
-            raise ValueError("Invalid characters detected in input.")
-
-        return clean_value
         
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -46,10 +32,16 @@ class AddressMatchUatAPIView(APIView):
 
     def post(self, request):
 
+        client = self._authenticate_client(request)
+        if isinstance(client, Response):
+            return client
+
         try:
-            address1 = self.sanitize_input(request.data.get("address1"))
-            address2 = self.sanitize_input(request.data.get("address2"))
+            address1 = sanitize_input(request.data.get("address1"))
+            address2 = sanitize_input(request.data.get("address2"))
+        
         except ValueError as e:
+            
             return Response({
                 "success": False,
                 "status": 400,
@@ -66,31 +58,13 @@ class AddressMatchUatAPIView(APIView):
                 missing.append("address1")
         
             error_msg = f"Missing required fields: {', '.join(missing)}"
-            self._log_request(
-                address1=address1,
-                address2=address2,
-                vendor_name=None,
-                endpoint=request.path,
-                status_code=400,
-                status="fail",
-                request_payload=request.data,
-                response_payload=None,
-                error_message=error_msg,
-                user=None,
-                match_obj=None,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                created_by=None,
-            )
+           
             return Response({
                 "success": False,
                 "status": 400,
                 "error": error_msg
             }, status=400)
         
-        client = self._authenticate_client(request)
-        if isinstance(client, Response):
-            return client
         
         service_name = "ADDRESS"
         service_id = KYC_MY_SERVICES.get(service_name.upper())
@@ -111,7 +85,7 @@ class AddressMatchUatAPIView(APIView):
                 match_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None,
+                created_by=client.id if client else None,
             )
             return Response({
                 "success": False,
@@ -123,6 +97,31 @@ class AddressMatchUatAPIView(APIView):
             cache_days = self._get_cache_days(client, service_id)
 
         except PermissionError as e:
+            error_msg = str(e)
+            self._log_request(
+                address1=address1,
+                address2=address2,
+                vendor_name=None,
+                endpoint=request.path,
+                status_code=429,  
+                status="fail",
+                request_payload=request.data,
+                response_payload=None,
+                error_message=error_msg,
+                user=None,
+                match_obj=None,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                created_by=client.id if client else None,
+            )
+            return Response({
+                "success": False,
+                "status": 429,
+                "error": error_msg
+            }, status=429)
+
+        except ValueError as e:
+            error_msg = str(e)
 
             self._log_request(
                 address1=address1,
@@ -138,7 +137,7 @@ class AddressMatchUatAPIView(APIView):
                 match_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None,
+                created_by=client.id if client else None,
             )
             return Response({
                 "success": False,
@@ -161,7 +160,7 @@ class AddressMatchUatAPIView(APIView):
                 match_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None,
+                created_by=client.id if client else None,
 
             )
             return Response({
@@ -174,21 +173,8 @@ class AddressMatchUatAPIView(APIView):
         address1 = request.data.get("address1", "").strip()
         address2 = request.data.get("address2", "").strip()
 
-        # cached = UatAddressMatch.objects.filter(
-        #         address1__iexact=address1,
-        #         address2__iexact=address2,
-        #         created_at__gte=days_ago
-        #     ).first()
-
-        # cached = UatAddressMatch.objects.filter(
-        #     house__iexact=address1,  # or whichever field corresponds to address1
-        #     city__iexact=address2,
-        #     created_at__gte=days_ago
-        # ).first()
-
         cached = UatAddressMatch.objects.filter(
-            # address2__iexact=address2,   # or whichever field you map address2 to
-            address1__iexact=address1,      # optional depending on your mapping
+            address1__iexact=address1,     
             created_at__gte=days_ago
         ).first()
         
@@ -212,15 +198,19 @@ class AddressMatchUatAPIView(APIView):
 
             )
 
+            message = (
+                "Data from cache" if client.id == 1
+                else "Data fetched successfully"
+            )
+            
             return Response({
                 "success": True,
                 "status": 200,
-                "message": "Cached data",
+                "message": message,
                 "data": serializer.data
             })
         
         vendors = self._get_priority_vendors(client, service_id)
-        print(f"[DEBUG] Found {vendors.count()} priority vendors for client={client.id}, service_id={service_id}")
 
         if not vendors.exists():
             error_msg = "No vendors configured for Name Match service"
@@ -238,9 +228,16 @@ class AddressMatchUatAPIView(APIView):
                 match_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None,
+                created_by=client.id if client else None,
 
             )
+
+            error_msg = (
+                error_msg if client.id == 1
+                else "Service currently not accessible"
+
+            )
+            
             return Response({
                 "success": False,
                 "status": 403,
@@ -270,7 +267,7 @@ class AddressMatchUatAPIView(APIView):
                         match_obj=None,
                         ip_address=ip_address,
                         user_agent=user_agent,
-                        created_by=None,
+                        created_by=client.id if client else None,
 
                     )
                     continue 
@@ -297,7 +294,7 @@ class AddressMatchUatAPIView(APIView):
                         match_obj=None,
                         ip_address=ip_address,
                         user_agent=user_agent,
-                        created_by=client.id,
+                        created_by=client.id if client else None,
                     )
                     continue
                 
@@ -318,13 +315,19 @@ class AddressMatchUatAPIView(APIView):
                     match_obj=name_obj,
                     ip_address=ip_address,
                     user_agent=user_agent,
-                    created_by=client.id,
+                    created_by=client.id if client else None,
                 )
 
+                message = (
+                    f"Data from {vendor.vendor_name}"
+                    if client.id == 1
+                    else "Data fetched successfully"
+                )
+                
                 return Response({
                     "success": True,
                     "status": 200,
-                    "message": f"Data from {vendor.vendor_name}",
+                    "message": message,
                     "data": serializer.data
                 })
 
@@ -347,13 +350,18 @@ class AddressMatchUatAPIView(APIView):
                     created_by=client.id,
 
                 )
-                
                 continue
+            
+        final_error_message = (
+            "No vendor returned valid data. All vendor requests failed."
+            if client.id == 1
+            else "Unable to process the request at the moment. Please try again later."
+        )
             
         return Response({
             "success": False,
             "status": 404,
-            "error": "No vendor returned valid data"
+            "error": final_error_message
         }, status=404)
 
     def _authenticate_client(self, request):
@@ -380,7 +388,7 @@ class AddressMatchUatAPIView(APIView):
                 match_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None,
+                created_by=client.id if client else None,
             )
         
             return Response({
@@ -410,7 +418,7 @@ class AddressMatchUatAPIView(APIView):
                 match_obj=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                created_by=None,
+                created_by=client.id if client else None,
             )
 
             return Response({
@@ -435,6 +443,15 @@ class AddressMatchUatAPIView(APIView):
         if cs.status is False:
             raise PermissionError(f"Service is not permitted for client")
 
+        success_count = UatAddressMatchRequestLog.objects.filter(
+            created_by=client.id,
+            status_code__in=["200", 200],
+            status__iexact="success" 
+        ).count()
+        
+        if success_count >= cs.uat_api_limit:
+           
+            raise PermissionError(f"UAT API limit exceeded")
         return cs.day
     
 

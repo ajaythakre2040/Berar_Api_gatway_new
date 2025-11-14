@@ -4,7 +4,6 @@ from django.utils import timezone
 from django.db import transaction, connection
 
 class Command(BaseCommand):
-    help = "Production-ready seeder for ClientManagement"
 
     def handle(self, *args, **kwargs):
         clients = [

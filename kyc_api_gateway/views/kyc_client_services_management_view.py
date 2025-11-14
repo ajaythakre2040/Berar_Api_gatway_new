@@ -13,8 +13,6 @@ from kyc_api_gateway.models.kyc_client_services_management import KycClientServi
 from kyc_api_gateway.serializers.kyc_client_services_management_serializer import (
     KycClientServicesManagementSerializer,
 )
-from kyc_api_gateway.models.client_management import ClientManagement
-from kyc_api_gateway.models.kyc_my_services import KycMyServices
 
 
 class KycClientServicesListCreate(APIView):

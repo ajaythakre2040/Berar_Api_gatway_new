@@ -18,7 +18,6 @@ def build_rc_request(vendor_name, request_data):
         }
 
     elif vendor_name.lower() == "surepass":
-        # return {"id_number": request_data.get("rc_number")}
         return {
             "id_number": request_data.get("rc_number")
         }
@@ -66,7 +65,6 @@ def call_rc_vendor_api(vendor, request_data):
             }
 
     except requests.HTTPError as e:
-        # Capture 400/403/500 error details for logging
         try:
             error_content = response.json()
         except Exception:
