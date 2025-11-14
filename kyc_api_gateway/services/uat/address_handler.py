@@ -45,7 +45,7 @@ def build_address_request(vendor_name, request_data):
             "clientData": {"caseId": request_data.get("case_id", "123456")},
         }
 
-    elif vendor_key == "internal":   
+    elif vendor_key == VENDOR_NAMES.get("self"):
         return {
             "address1": address1,
             "address2": address2,
@@ -80,7 +80,7 @@ def call_vendor_api(vendor, request_data):
     headers = {"Content-Type": "application/json"}
     if vendor_key == "karza":
         headers["x-karza-key"] = vendor.uat_api_key
-    elif vendor_key == "internal":
+    elif vendor_key == "surepass":
         headers = {"Content-Type": "application/json"}
 
     try:
@@ -139,7 +139,7 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
         }
 
        
-    elif vendor_name == "internal":
+    elif vendor_name == "surepass":
         return {
             "client_id": raw_data.get("client_id"),
             "request_id": raw_data.get("request_id"),
@@ -163,7 +163,7 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
 
 def save_address_match(normalized, created_by):
     print("\n--- Saving Address Match UAT ---")
-    print("Normalized Data:", normalized)
+   
     match_obj = UatAddressMatch.objects.create(
         client_id=normalized.get("client_id"),
         request_id=normalized.get("request_id"),
