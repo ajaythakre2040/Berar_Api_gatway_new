@@ -58,12 +58,6 @@ from kyc_api_gateway.views.kyc_client_services_management_view import (
 )
 
 
-<<<<<<< HEAD
-=======
-# from kyc_api_gateway.views.uat.pan_details_view import PanUatDetailsAPIView
-# from kyc_api_gateway.views.pro.pan_details_view import PanProductionDetailsAPIView
-# from kyc_api_gateway.views.uat.bill_details_view import BillUatDetailsAPIView
->>>>>>> f00a18a155c8aac1c15de48562e8f8617425c9fb
 
 from kyc_api_gateway.views.uat.pan_details_view import UatPanDetailsAPIView
 from kyc_api_gateway.views.uat.bill_details_view import UatBillDetailsAPIView
