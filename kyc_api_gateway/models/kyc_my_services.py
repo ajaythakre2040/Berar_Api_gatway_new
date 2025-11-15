@@ -6,6 +6,7 @@ class KycMyServices(models.Model):
     uat_url = models.CharField(max_length=255)
     prod_url = models.CharField(max_length=255)
 
+    status = models.IntegerField(default=1)
     created_by = models.IntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_by = models.IntegerField(null=True, blank=True)

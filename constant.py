@@ -72,3 +72,10 @@ VENDOR_NAMES = {
     "vendor_3": "Vendor 123",
     "vendor_4": "Vendor 456",
 }
+
+
+KYC_MY_SERVICES_STATUS = {
+    1: "Active",
+    2: "Inactive",
+    3: "Suspended",
+}

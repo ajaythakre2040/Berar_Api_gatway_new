@@ -8,6 +8,7 @@ from auth_system.permissions.token_valid import IsTokenValid
 from auth_system.utils.pagination import CustomPagination
 from django.db.models import Q
 from kyc_api_gateway.models.kyc_my_services import KycMyServices
+from constant import KYC_MY_SERVICES_STATUS
 from kyc_api_gateway.serializers.kyc_my_services_serializer import (
     KycMyServicesSerializer,
 )
@@ -77,25 +78,25 @@ class KycMyServicesListCreate(APIView):
             },
         )
 
-    def post(self, request):
-        serializer = KycMyServicesSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(created_by=request.user.id)
-            return Response(
-                {
-                    "success": True,
-                    "message": "Service created successfully.",
-                },
-                status=status.HTTP_201_CREATED,
-            )
-        return Response(
-            {
-                "success": False,
-                "message": "Failed to create service.",
-                "errors": serializer.errors,
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+    # def post(self, request):
+    #     serializer = KycMyServicesSerializer(data=request.data)
+    #     if serializer.is_valid():
+    #         serializer.save(created_by=request.user.id)
+    #         return Response(
+    #             {
+    #                 "success": True,
+    #                 "message": "Service created successfully.",
+    #             },
+    #             status=status.HTTP_201_CREATED,
+    #         )
+    #     return Response(
+    #         {
+    #             "success": False,
+    #             "message": "Failed to create service.",
+    #             "errors": serializer.errors,
+    #         },
+    #         status=status.HTTP_400_BAD_REQUEST,
+    #     )
 
 
 class KycMyServicesDetail(APIView):
@@ -313,3 +314,5 @@ class KycAllServicesDetails(APIView):
             },
             status=200,
         )
+
+
