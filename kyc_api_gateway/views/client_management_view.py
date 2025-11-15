@@ -13,6 +13,9 @@ from kyc_api_gateway.models.api_management import ApiManagement
 from auth_system.utils.pagination import CustomPagination
 from django.db.models import Q
 from kyc_api_gateway.utils.key_generator import generate_secure_token
+from rest_framework.permissions import IsAuthenticated
+from auth_system.permissions.token_valid import IsTokenValid
+
 
 class ClientManagementListCreate(APIView):
     permission_classes = [AllowAny]
@@ -118,7 +121,6 @@ class ClientManagementChangeKey(APIView):
     permission_classes = [AllowAny]
 
     def patch(self, request, pk):
-
         client = get_object_or_404(ClientManagement, pk=pk, deleted_at__isnull=True)
 
         if client.status != 1:
@@ -129,9 +131,7 @@ class ClientManagementChangeKey(APIView):
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
-
         key_type = request.data.get("key_type")
-
         if key_type not in ["uat_key", "production_key"]:
 
             return Response(
@@ -159,3 +159,5 @@ class ClientManagementChangeKey(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
