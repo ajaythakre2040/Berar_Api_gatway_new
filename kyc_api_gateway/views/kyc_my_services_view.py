@@ -198,7 +198,6 @@ class KycMyServicesListAll(APIView):
 
 class KycMyClientServicesListAll(APIView):
     authentication_classes = [ClientJWTAuthentication]
-    # print("KycMyServicesListAll accessed")
     permission_classes = [AllowAny]
 
     def get(self, request):
