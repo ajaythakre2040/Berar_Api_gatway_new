@@ -1,7 +1,9 @@
 import requests
 from decimal import Decimal
 from decouple import config
+from constant import VENDOR_NAMES
 from kyc_api_gateway.models import UatAddressMatch
+from kyc_api_gateway.services.uat.own_vendor_address_handler import internal_vendor_match, normalize_internal_vendor_response
 from kyc_api_gateway.utils.constants import VENDOR_ADDRESS_SERVICE_ENDPOINTS
 
 SUREPASS_TOKEN = config("SUREPASS_TOKEN", default=None)
@@ -43,7 +45,7 @@ def build_address_request(vendor_name, request_data):
             "clientData": {"caseId": request_data.get("case_id", "123456")},
         }
 
-    elif vendor_key == "internal":   
+    elif vendor_key == VENDOR_NAMES.get("self"):
         return {
             "address1": address1,
             "address2": address2,
@@ -61,6 +63,11 @@ def build_address_request(vendor_name, request_data):
 
 def call_vendor_api(vendor, request_data):
     vendor_key = vendor.vendor_name.lower()
+    if vendor_key == VENDOR_NAMES.get("self"):
+        address1 = request_data.get("address1", "").strip()
+        address2 = request_data.get("address2", "").strip()
+
+        return internal_vendor_match(address1, address2)
     endpoint_path = VENDOR_ADDRESS_SERVICE_ENDPOINTS.get(vendor_key)
     base_url = vendor.uat_base_url
 
@@ -73,7 +80,7 @@ def call_vendor_api(vendor, request_data):
     headers = {"Content-Type": "application/json"}
     if vendor_key == "karza":
         headers["x-karza-key"] = vendor.uat_api_key
-    elif vendor_key == "internal":
+    elif vendor_key == "surepass":
         headers = {"Content-Type": "application/json"}
 
     try:
@@ -132,7 +139,7 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
         }
 
        
-    elif vendor_name == "internal":
+    elif vendor_name == "surepass":
         return {
             "client_id": raw_data.get("client_id"),
             "request_id": raw_data.get("request_id"),
@@ -147,12 +154,16 @@ def normalize_vendor_response(vendor_name, raw_data, request_data):
             "locality": raw_data.get("locality"),
             "pincode": raw_data.get("pincode"),
         }
+    elif vendor_name == VENDOR_NAMES.get("self"):
+        return normalize_internal_vendor_response(raw_data, request_data)
 
 
     return None
 
 
 def save_address_match(normalized, created_by):
+    print("\n--- Saving Address Match UAT ---")
+   
     match_obj = UatAddressMatch.objects.create(
         client_id=normalized.get("client_id"),
         request_id=normalized.get("request_id"),

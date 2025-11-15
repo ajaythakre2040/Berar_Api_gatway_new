@@ -35,8 +35,8 @@ KYC_MY_SERVICES = {
     "NAME": 4,
     "RC": 5,
     "DRIVING": 6,
-    "PASSPORT": 8,
-    "ADDRESS": 9,
+    "PASSPORT": 7,
+    "ADDRESS": 8,
 }
 
 
@@ -64,3 +64,11 @@ class DeliveryStatus(models.IntegerChoices):
 # -----------------------
 class SmsType(models.IntegerChoices):
     LOGIN_OTP = 1, "Client Login OTP"
+
+
+VENDOR_NAMES = {
+    "self": "internal",
+    "vendor_2": "Vendor XYZ",
+    "vendor_3": "Vendor 123",
+    "vendor_4": "Vendor 456",
+}

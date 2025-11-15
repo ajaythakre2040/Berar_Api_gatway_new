@@ -14,7 +14,7 @@ from kyc_api_gateway.services.uat.passport_handler import (
 )
 from constant import KYC_MY_SERVICES
 from kyc_api_gateway.models.uat_passport_log import UatPassportRequestLog
-from kyc_api_gateway.utils.sanitizer import sanitize_input
+from comman.utils.sanitizer import sanitize_input
 
 
 class VendorUatPassportDetailsAPIView(APIView):
